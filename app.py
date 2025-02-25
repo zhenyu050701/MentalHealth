@@ -27,7 +27,7 @@ def ask_questions():
 
     for question in questions:
         if question["key"] in ["self_harm", "traumatic_event"]:
-            responses[question["key"]] = st.radio(question["text"], [0, 1])
+            responses[question["key"]] = st.radio(question["text"], [0, 1])  # Only 0 and 1
         elif question["key"] == "mood":
             responses[question["key"]] = st.selectbox(
                 question["text"], ["Neutral", "Happy", "Anxious", "Depressed", "Sad"]
