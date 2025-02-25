@@ -101,33 +101,4 @@ if st.session_state.submitted:
     st.write(f"### Your Health Score: {health_percentage}%")
     st.write(f"### Result: {result}")
 
-    # Fetch all assessments and create a pie chart
-    assessments = list(collection.find({}, {"_id": 0, "health_percentage": 1}))
-    
-    # Debugging: Print the assessments to ensure they contain the health_percentage field
-    st.write("Assessments fetched:", assessments)  # Debugging line
 
-    score_ranges = {"0-20": 0, "20-40": 0, "40-60": 0, "60-80": 0, "80-100": 0}
-
-    # Loop through assessments and categorize the scores into ranges
-    /*for a in assessments:
-        if "health_percentage" in a:  # Check if the key exists
-            score = a["health_percentage"]
-            if 0 <= score < 20:
-                score_ranges["0-20"] += 1
-            elif 20 <= score < 40:
-                score_ranges["20-40"] += 1
-            elif 40 <= score < 60:
-                score_ranges["40-60"] += 1
-            elif 60 <= score < 80:
-                score_ranges["60-80"] += 1
-            else:
-                score_ranges["80-100"] += 1
-
-    # Generate the pie chart
-    fig = px.pie(
-        names=list(score_ranges.keys()),
-        values=list(score_ranges.values()),
-        title="Health Score Distribution"
-    )
-    st.plotly_chart(fig)*/
