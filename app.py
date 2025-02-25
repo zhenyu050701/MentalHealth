@@ -20,9 +20,8 @@ MOOD_SCORES = {
 def ask_questions():
     responses = {}
 
-    # Gender selection
-    gender = st.radio("Select your gender:", ["Male", "Female"])
-    responses["gender"] = gender
+    # Gender selection (not included in calculations)
+    responses["gender"] = st.radio("Select your gender:", ["Male", "Female"])
 
     # Loop through questions
     for question in questions:
@@ -48,15 +47,18 @@ responses = ask_questions()
 
 # Submit button to display results
 if st.button("Submit Assessment"):
-    health_percentage = calculate_health_percentage(responses)
+    # Filter only numeric values for calculation
+    numeric_responses = {k: v for k, v in responses.items() if isinstance(v, (int, float))}
+    
+    health_percentage = calculate_health_percentage(numeric_responses)  # Now only numbers
     result = get_result_category(health_percentage)
 
     st.write(f"### Your Health Score: {health_percentage}%")
     st.write(f"### Result: {result}")
 
-    # Save data to MongoDB
+    # Save data to MongoDB (store full responses, but only calculate from numeric ones)
     assessment = {
-        "responses": responses,
+        "responses": responses,  # Save all user inputs
         "health_percentage": health_percentage,
         "result": result,
         "assessment_date": datetime.datetime.now().isoformat()
