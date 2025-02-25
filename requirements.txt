@@ -5,3 +5,4 @@ numpy
 pymongo
 XlsxWriter
 Pillow
+plotly
