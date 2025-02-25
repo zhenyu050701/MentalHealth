@@ -10,17 +10,18 @@ def calculate_health_percentage(responses, questions):
     for question in questions:
         key = question["key"]
         q_type = question.get("type", "positive_scale")
-        value = str(responses.get(key, 0))
+        value = str(responses.get(key, "0"))  # Ensure string conversion
         
         if q_type == "mood":
             score = TRANSFORM_RULES["mood"].get(value, 50)
-            total_score += score
-            max_score += 100
+        elif q_type == "binary_risk":
+            score = TRANSFORM_RULES["binary_risk"].get(value, 0)
         else:
             scale_type = "negative_scale" if "negative" in q_type else "positive_scale"
             score = TRANSFORM_RULES[scale_type].get(value, 0)
-            total_score += score
-            max_score += 100
+        
+        total_score += score
+        max_score += 100
 
     return round((total_score / max_score) * 100, 2) if max_score > 0 else 0
 
