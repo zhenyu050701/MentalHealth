@@ -12,6 +12,15 @@ total_questions = len(questions)
 # Marks distribution: Each question will contribute equally to the final score
 marks_per_question = 100 / total_questions
 
+# Mood scoring weights
+mood_scores = {
+    "Happy": 10,
+    "Neutral": 7,
+    "Anxious": 5,
+    "Sad": 3,
+    "Depressed": 1
+}
+
 # Function to ask questions
 def ask_questions():
     responses = {}
@@ -51,16 +60,7 @@ def calculate_health_percentage(responses):
             total_score += (5 - value) / 5 * marks_per_question
         elif key == "mood":
             # Handle mood scoring to ensure "Happy" gets the full marks (100% for Happy)
-            if value == "Happy":
-                total_score += marks_per_question  # Happy gets full marks
-            elif value == "Neutral":
-                total_score += 0.8 * marks_per_question  # Neutral gets 80% of the marks
-            elif value == "Anxious":
-                total_score += 0.6 * marks_per_question  # Anxious gets 60% of the marks
-            elif value == "Sad":
-                total_score += 0.4 * marks_per_question  # Sad gets 40% of the marks
-            elif value == "Depressed":
-                total_score += 0.2 * marks_per_question  # Depressed gets 20% of the marks
+            total_score += mood_scores.get(value, 0)  # Use the predefined mood scores
         elif isinstance(value, int):
             # For other 0-5 scale answers, calculate score proportionally
             total_score += (value / 5) * marks_per_question
