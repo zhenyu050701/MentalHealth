@@ -1,7 +1,6 @@
 import streamlit as st
 import json
 import datetime
-from pymongo import MongoClient
 
 # Load questions (Make sure questions.json exists and contains your question data)
 with open("questions.json", "r") as f:
@@ -10,7 +9,7 @@ with open("questions.json", "r") as f:
 # Total number of questions
 total_questions = len(questions)
 
-# Define equal marks for each question (each question gets 100/total_questions marks)
+# Marks distribution: Each question will contribute equally to the final score
 marks_per_question = 100 / total_questions
 
 # Function to ask questions
@@ -51,7 +50,7 @@ def calculate_health_percentage(responses):
             # Reverse scale: For 0 = best, give full marks, for 5 = worst, give 0 marks
             total_score += (5 - value) / 5 * marks_per_question
         elif key == "mood":
-            # Handle mood scoring to ensure "Happy" gets the full marks
+            # Handle mood scoring to ensure "Happy" gets the full marks (100% for Happy)
             if value == "Happy":
                 total_score += marks_per_question  # Happy gets full marks
             elif value == "Neutral":
