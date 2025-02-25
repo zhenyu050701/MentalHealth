@@ -14,14 +14,14 @@ client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
 collection = db[COLLECTION_NAME]
 
-# Load questions
+# Load questions from the questions.json file
 with open("questions.json", "r") as f:
     questions = json.load(f)
 
 def ask_questions():
     responses = {}
 
-    # Ask for gender first (no scoring here)
+    # Ask for gender first
     gender = st.radio("Select your gender:", ["Male", "Female"])
     responses["gender"] = gender
 
@@ -30,14 +30,12 @@ def ask_questions():
             # Binary choice (0 = No, 1 = Yes)
             responses[question["key"]] = st.radio(question["text"], [0, 1])
         elif question["key"] == "traumatic_event":
-            # Ensure traumatic_event follows 1-0 format (1 = Yes, 0 = No)
-            responses[question["key"]] = st.radio(question["text"], [1, 0])
+            # Binary selection for traumatic event (0 = No, 1 = Yes)
+            responses[question["key"]] = st.radio(question["text"], [0, 1])  # Modified to 0 or 1
         elif question["key"] == "mood":
-            # Convert the mood response to a numeric value (0 to 4 scale)
-            mood_values = ["Neutral", "Happy", "Anxious", "Depressed", "Sad"]
-            responses[question["key"]] = mood_values.index(st.selectbox(
-                question["text"], mood_values
-            ))
+            responses[question["key"]] = st.selectbox(
+                question["text"], ["Neutral", "Happy", "Anxious", "Depressed", "Sad"]
+            )
         else:
             # Use slider for other questions (0 to 5 scale)
             responses[question["key"]] = st.slider(question["text"], 0, 5, 3)
@@ -45,28 +43,24 @@ def ask_questions():
     return responses
 
 def calculate_health_percentage(responses):
-    """Calculates the mental health score based on responses."""
+    """Calculates the mental health score based on responses"""
     total_score = 0
-    max_score = 100  # Total maximum score
-
-    # Weightings for each question
-    slider_weight = 8.33  # For slider-based questions
-    mood_weight = 5  # For mood question
-    self_harm_weight = 5  # For self-harm question
-    traumatic_event_weight = 5  # For traumatic event question
-
+    max_score = 0
+    
     for key, value in responses.items():
-        if key == "self_harm":
-            total_score += value * self_harm_weight
+        if key == "self_harm":  
+            max_score += 1  # Binary scale (0-1)
         elif key == "traumatic_event":
-            total_score += value * traumatic_event_weight
-        elif key == "mood":
-            # Mood scale (0-4) mapped to the range 0-5 for weighting
-            total_score += (value / 4) * mood_weight
-        elif isinstance(value, int):  # Slider questions (0-5)
-            total_score += value * slider_weight / 5
+            max_score += 1  # Binary but in 1-0 format
+            total_score += value  # Direct scoring for 1 or 0
+        elif isinstance(value, int):  
+            total_score += value
+            max_score += 5  # Assuming each question is on a 0-5 scale
 
-    return int(total_score)
+    if max_score == 0:
+        return 0  # Avoid division by zero
+
+    return int((total_score / max_score) * 100)
 
 def get_result_category(score):
     """Categorizes the mental health score into levels"""
@@ -100,6 +94,7 @@ if st.button("Submit Assessment"):
         "assessment_date": datetime.datetime.now().isoformat()
     }
 
+    # Insert data into MongoDB
     if collection.insert_one(assessment):
         st.session_state.submitted = True
 
