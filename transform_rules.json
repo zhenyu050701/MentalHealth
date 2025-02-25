@@ -1,0 +1,13 @@
+{
+    "mood": {
+        "Neutral": 3,
+        "Happy": 4,
+        "Anxious": 2,
+        "Depressed": 1,
+        "Sad": 2
+    },
+    "self_harm": {
+        "0": 0,
+        "1": 0
+    }
+}

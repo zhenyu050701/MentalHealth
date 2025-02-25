@@ -1,0 +1,62 @@
+[
+    {
+        "key": "stress_level",
+        "text": "Rate your stress level (0-5)"
+    },
+    {
+        "key": "mood",
+        "text": "Select your mood"
+    },
+    {
+        "key": "sleep_quality",
+        "text": "Rate your sleep quality (0-5)"
+    },
+    {
+        "key": "anxiety_level",
+        "text": "Rate your anxiety level (0-5)"
+    },
+    {
+        "key": "social_support",
+        "text": "Rate your social support (0-5)"
+    },
+    {
+        "key": "physical_activity",
+        "text": "Rate your physical activity (0-5)"
+    },
+    {
+        "key": "diet_quality",
+        "text": "Rate your diet quality (0-5)"
+    },
+    {
+        "key": "substance_use",
+        "text": "Rate your substance use (0-5)"
+    },
+    {
+        "key": "work_stress",
+        "text": "Rate your work stress (0-5)"
+    },
+    {
+        "key": "family_support",
+        "text": "Rate your family support (0-5)"
+    },
+    {
+        "key": "life_satisfaction",
+        "text": "Rate your life satisfaction (0-5)"
+    },
+    {
+        "key": "self_esteem",
+        "text": "Rate your self-esteem (0-5)"
+    },
+    {
+        "key": "self_harm",
+        "text": "Have you engaged in self-harm? (0 = No, 1 = Yes)"
+    },
+    {
+        "key": "concentration_level",
+        "text": "Rate your concentration level (0-5)"
+    },
+    {
+        "key": "recent_traumatic_event",
+        "text": "Have you experienced a recent traumatic event? (0 = No, 1 = Yes)"
+    }
+]
