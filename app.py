@@ -25,9 +25,10 @@ client = init_mongo()
 def convert_mongo_docs(docs):
     """Convert MongoDB documents to JSON-serializable format"""
     for doc in docs:
-        doc["_id"] = str(doc["_id"])  # Convert ObjectId to string
+        doc["_id"] = str(doc["_id"])
         if "timestamp" in doc:
-            doc["timestamp"] = doc["timestamp"].isoformat()
+            if isinstance(doc["timestamp"], datetime):
+                doc["timestamp"] = doc["timestamp"].isoformat()
     return docs
 
 def render_question(q):
@@ -55,46 +56,50 @@ def show_analytics():
             st.warning("No data available yet. Complete an assessment first!")
             return
 
-        # Convert MongoDB data to JSON-serializable format
+        # Convert MongoDB data
         clean_data = convert_mongo_docs(raw_data)
         df = pd.DataFrame(clean_data)
 
-        # Score Distribution by Gender
-        st.subheader("📊 Score Distribution by Gender")
-        fig = px.box(
-            df,
-            x="gender",
-            y="health_percentage",
-            color="gender",
-            points="all",
-            hover_data=["stress_level", "anxiety_level", "mood"],
-            title="Mental Health Scores Distribution by Gender"
-        )
-        fig.update_traces(quartilemethod="exclusive")
-        st.plotly_chart(fig)
+        # Gender Distribution Pie Chart
+        st.subheader("👥 Gender Distribution")
+        gender_counts = df['gender'].value_counts().reset_index()
+        gender_counts.columns = ['Gender', 'Count']
+        
+        fig = px.pie(gender_counts,
+                     values='Count',
+                     names='Gender',
+                     color='Gender',
+                     color_discrete_map={'Male':'lightcyan',
+                                        'Female':'darkblue'},
+                     hole=0.3)
+        st.plotly_chart(fig, use_container_width=True)
 
-        # Average Score Comparison
+        # Average Scores
         st.subheader("📈 Average Mental Health Scores")
         avg_scores = df.groupby("gender")["health_percentage"].mean().reset_index()
-        fig = px.bar(
-            avg_scores,
-            x="gender",
-            y="health_percentage",
-            color="gender",
-            labels={"health_percentage": "Average Score (%)"},
-            text_auto=".2f"
-        )
+        fig = px.bar(avg_scores, 
+                    x="gender", 
+                    y="health_percentage",
+                    color="gender",
+                    text_auto=".2f")
         st.plotly_chart(fig)
 
-        # Result Category Breakdown
-        st.subheader("🏷️ Result Category Distribution")
-        category_counts = df.groupby(["gender", "result_category"]).size().unstack().fillna(0)
-        fig = px.bar(
-            category_counts,
-            barmode="group",
-            labels={"value": "Number of Assessments"},
-            title="Result Categories by Gender"
-        )
+        # Score Distribution
+        st.subheader("📊 Score Distribution by Gender")
+        fig = px.box(df, 
+                    x="gender", 
+                    y="health_percentage", 
+                    color="gender",
+                    points="all",
+                    hover_data=["stress_level", "anxiety_level", "mood"])
+        st.plotly_chart(fig)
+
+        # Result Categories
+        st.subheader("🏷️ Result Category Breakdown")
+        category_counts = df.groupby(["gender", "result_category"]).size().unstack()
+        fig = px.bar(category_counts, 
+                    barmode="group",
+                    title="Results by Gender")
         st.plotly_chart(fig)
 
     except Exception as e:
@@ -119,7 +124,7 @@ def main():
         result = get_result_category(percentage)
 
         try:
-            # Create and save document
+            # Save to MongoDB
             doc = {
                 **responses,
                 "gender": gender,
@@ -127,11 +132,10 @@ def main():
                 "result_category": result,
                 "timestamp": datetime.now()
             }
-            
             db = client[st.secrets["db_name"]]
             db[st.secrets["collection_name"]].insert_one(doc)
-            st.success("Assessment saved successfully!")
-            
+            st.success("✅ Assessment saved successfully!")
+
             # Show results
             st.subheader("Your Results")
             col1, col2 = st.columns(2)
@@ -142,7 +146,7 @@ def main():
                 st.json(convert_mongo_docs([doc])[0])
 
         except Exception as e:
-            st.error(f"Error saving assessment: {str(e)}")
+            st.error(f"❌ Error saving assessment: {str(e)}")
 
     # Show analytics
     show_analytics()
