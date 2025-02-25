@@ -33,14 +33,10 @@ def convert_mongo_docs(docs):
 
 def clean_gender_data(df):
     """Standardize and clean gender column"""
-    # Convert to string and clean
     df['gender'] = df['gender'].astype(str).str.strip().str.title()
-    
-    # Filter valid genders and reset index
     valid_genders = ['Male', 'Female']
     df = df[df['gender'].isin(valid_genders)].copy()
     df.reset_index(drop=True, inplace=True)
-    
     return df
 
 def render_question(q):
@@ -76,52 +72,31 @@ def show_analytics():
         # Gender Distribution Pie Chart
         st.subheader("👥 Gender Distribution")
         
-        # Create complete gender template
-        all_genders = pd.DataFrame({'Gender': ['Male', 'Female'], 'Count': [0, 0]})
-        
-        # Get actual counts
+        # Get counts with proper column names
         gender_counts = df['gender'].value_counts().reset_index()
         gender_counts.columns = ['Gender', 'Count']
         
-        # Merge with template using outer join
-        gender_counts = pd.merge(
-            all_genders,
-            gender_counts,
-            on='Gender',
-            how='outer',
-            suffixes=('_template', '_actual')
-        ).fillna(0)
-
-        # Calculate final counts
-        gender_counts['Count'] = gender_counts['Count_template'] + gender_counts['Count_actual']
-        gender_counts = gender_counts[['Gender', 'Count']]
+        # Create complete gender template
+        all_genders = pd.DataFrame({'Gender': ['Male', 'Female'], 'Count': [0, 0]})
+        
+        # Merge with actual data
+        gender_counts = pd.concat([gender_counts, all_genders])
+        gender_counts = gender_counts.groupby('Gender', as_index=False)['Count'].sum()
 
         # Create visualization
-        fig = px.pie(
-            gender_counts,
-            values='Count',
-            names='Gender',
-            color='Gender',
-            color_discrete_map={'Male':'#1f77b4', 'Female':'#ff7f0e'},
-            hole=0.3,
-            category_orders={'Gender': ['Male', 'Female']}
-        )
+        fig = px.pie(gender_counts,
+                     values='Count',
+                     names='Gender',
+                     color='Gender',
+                     color_discrete_map={'Male':'#1f77b4',
+                                        'Female':'#ff7f0e'},
+                     hole=0.3)
         
-        fig.update_traces(
-            texttemplate='%{label}<br>%{value} (%{percent})',
-            hoverinfo='label+percent+value+name',
-            textposition='inside'
-        )
-        
-        fig.update_layout(
-            uniformtext_minsize=12,
-            uniformtext_mode='hide',
-            showlegend=False
-        )
-        
+        fig.update_traces(texttemplate='%{label}<br>%{value} (%{percent})',
+                          hoverinfo='label+percent+value')
         st.plotly_chart(fig, use_container_width=True)
 
-        # Rest of analytics components...
+        # Rest of analytics code...
         # [Keep existing average scores, distributions, and category breakdowns]
 
     except Exception as e:
