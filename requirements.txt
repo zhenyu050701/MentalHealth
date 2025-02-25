@@ -1,2 +1,7 @@
 streamlit
+pandas
+matplotlib
+numpy
 pymongo
+XlsxWriter
+Pillow
