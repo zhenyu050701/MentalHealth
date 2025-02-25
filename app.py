@@ -1,107 +1,47 @@
 import streamlit as st
 import json
-import datetime
+from datetime import datetime
+from calculation import calculate_health_percentage, get_result_category
 
-# Load questions (Make sure questions.json exists and contains your question data)
-with open("questions.json", "r") as f:
-    questions = json.load(f)
+# Load questions and config
+with open("questions.json") as f:
+    QUESTIONS = json.load(f)
 
-# Total number of questions
-total_questions = len(questions)
-
-# Marks distribution: Each question will contribute equally to the final score
-marks_per_question = 100 / total_questions
-
-# Function to ask questions
-def ask_questions():
-    responses = {}
-
-    # Ask gender first (no scoring)
-    gender = st.radio("Select your gender:", ["Male", "Female"])
-    responses["gender"] = gender
-
-    for question in questions:
-        if question["key"] == "self_harm":
-            responses[question["key"]] = st.radio(question["text"], [0, 1])
-        elif question["key"] == "traumatic_event":
-            responses[question["key"]] = st.radio(question["text"], [0, 1])  # No=0, Yes=1
-        elif question["key"] == "substance_use":
-            responses[question["key"]] = st.radio(question["text"], [0, 1])  # No=0, Yes=1
-        elif question["key"] == "mood":
-            responses[question["key"]] = st.selectbox(
-                question["text"], ["Neutral", "Happy", "Anxious", "Depressed", "Sad"]
-            )
-        elif question["key"] in ["work_stress", "anxiety_level", "stress_level"]:
-            responses[question["key"]] = st.slider(question["text"], 0, 5, 3)
-        else:
-            responses[question["key"]] = st.slider(question["text"], 0, 5, 3)
-
-    return responses
-
-# Function to calculate the mental health percentage
-def calculate_health_percentage(responses):
-    total_score = 0
-
-    for key, value in responses.items():
-        if key in ["traumatic_event", "substance_use"]:
-            # For "No" answer (0), give full marks (marks_per_question), for "Yes" (1), give 0 points
-            total_score += (1 - value) * marks_per_question
-        elif key in ["work_stress", "anxiety_level", "stress_level"]:
-            # Reverse scale: For 0 = best, give full marks, for 5 = worst, give 0 marks
-            total_score += (5 - value) / 5 * marks_per_question
-        elif key == "mood":
-            # Handle mood scoring to ensure "Happy" gets the full marks (100% for Happy)
-            if value == "Happy":
-                total_score += marks_per_question  # Happy gets full marks
-            elif value == "Neutral":
-                total_score += 0.8 * marks_per_question  # Neutral gets 80% of the marks
-            elif value == "Anxious":
-                total_score += 0.6 * marks_per_question  # Anxious gets 60% of the marks
-            elif value == "Sad":
-                total_score += 0.4 * marks_per_question  # Sad gets 40% of the marks
-            elif value == "Depressed":
-                total_score += 0.2 * marks_per_question  # Depressed gets 20% of the marks
-        elif isinstance(value, int):
-            # For other 0-5 scale answers, calculate score proportionally
-            total_score += (value / 5) * marks_per_question
-
-    return total_score
-
-# Streamlit UI
-st.title("Mental Health Assessment")
-
-# Initialize the responses
-responses = ask_questions()
-
-# Submit the form
-if st.button("Submit Assessment"):
-    health_percentage = calculate_health_percentage(responses)
+def render_question(question):
+    q_type = question.get("type", "positive_scale")
+    key = question["key"]
     
-    # Ensure the total score is exactly 100
-    health_percentage = min(100, max(0, health_percentage))  # Bound the score between 0 and 100
-    
-    # Calculate the result category
-    if health_percentage < 20:
-        result = "Severe Risk"
-    elif health_percentage < 40:
-        result = "High Risk"
-    elif health_percentage < 60:
-        result = "Moderate Risk"
-    elif health_percentage < 80:
-        result = "Mild Risk"
-    else:
-        result = "Healthy"
+    if q_type == "mood":
+        return st.selectbox(question["text"], question["options"])
+    elif "scale" in q_type:
+        return st.slider(question["text"], 0, 5)
+    elif q_type == "binary_risk":
+        return st.radio(question["text"], options=[("No", 0), ("Yes", 1)], format_func=lambda x: x[0])[1]
 
-    # Record the assessment with responses and result
-    assessment = {
-        "responses": responses,
-        "health_percentage": health_percentage,
-        "result": result,
-        "assessment_date": datetime.datetime.now().isoformat()
-    }
+def main():
+    st.title("Mental Health Assessment")
+    st.write("Complete this assessment to evaluate your current mental health status.")
 
-    # Display the result
-    st.write(f"### Your Health Score: {health_percentage:.2f}%")
-    st.write(f"### Result: {result}")
+    # Collect responses
+    responses = {"timestamp": datetime.now().isoformat()}
+    for question in QUESTIONS:
+        responses[question["key"]] = render_question(question)
 
-    # Optionally save this result to a database or file if needed.
+    # Add gender separately
+    responses["gender"] = st.radio("Gender", ["Male", "Female", "Other/Prefer not to say"])
+
+    if st.button("Submit Assessment"):
+        percentage = calculate_health_percentage(responses, QUESTIONS)
+        result = get_result_category(percentage)
+        
+        # Show results
+        st.subheader(f"Assessment Result: {result}")
+        st.metric("Overall Score", f"{percentage}%")
+        
+        # Show detailed breakdown
+        with st.expander("Detailed Breakdown"):
+            for q in QUESTIONS:
+                st.write(f"**{q['text']}:** {responses[q['key']]}")
+
+if __name__ == "__main__":
+    main()
