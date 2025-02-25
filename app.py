@@ -19,7 +19,6 @@ with open("questions.json", "r") as f:
     questions = json.load(f)
 
 def ask_questions():
-    """Dynamically generates the questionnaire based on JSON data."""
     responses = {}
 
     # Ask for gender first
@@ -27,46 +26,34 @@ def ask_questions():
     responses["gender"] = gender
 
     for question in questions:
-        key = question["key"]
-        text = question["text"]
-
-        if key in ["self_harm", "traumatic_event"]:  
-            # Binary Yes/No (1 = Yes, 0 = No)
-            responses[key] = st.radio(text, [0, 1] if key == "self_harm" else [1, 0])
-
-        elif key == "mood":
-            responses[key] = st.selectbox(
-                text, ["Neutral", "Happy", "Anxious", "Depressed", "Sad"]
+        if question["key"] == "self_harm":
+            responses[question["key"]] = st.radio(question["text"], [0, 1])
+        elif question["key"] == "traumatic_event":
+            responses[question["key"]] = st.radio(question["text"], [1, 0])
+        elif question["key"] == "mood"]:
+            responses[question["key"]] = st.selectbox(
+                question["text"], ["Neutral", "Happy", "Anxious", "Depressed", "Sad"]
             )
-
-        elif "scale" in question:
-            # Questions that use a scale (0-5)
-            responses[key] = st.slider(text, 0, 5, 3)
-
         else:
-            # Any other text-based input (if needed in future)
-            responses[key] = st.text_input(text, "")
-
+            responses[question["key"]] = st.slider(question["text"], 0, 5, 3)
+    
     return responses
 
 def calculate_health_percentage(responses):
-    """Calculates the mental health score based on responses."""
     total_score = 0
     max_score = 0
-
+    
     for key, value in responses.items():
-        if key in ["self_harm", "traumatic_event"]:  
+        if key in ["self_harm", "traumatic_event"]:
             max_score += 1
-            total_score += (1 - value) if key == "traumatic_event" else value  
-        
-        elif isinstance(value, int):  
+            total_score += 1 - value if key == "traumatic_event" else value
+        elif isinstance(value, int):
             total_score += value
-            max_score += 5  
+            max_score += 5  # Assuming 0-5 scale
 
     return int((total_score / max_score) * 100) if max_score else 0
 
 def get_result_category(score):
-    """Categorizes the mental health score into levels."""
     if score < 20:
         return "Severe Risk"
     elif score < 40:
@@ -110,13 +97,13 @@ if st.session_state.submitted:
 
     for a in assessments:
         score = a["health_percentage"]
-        if 0 <= score < 20:
+        if score < 20:
             score_ranges["0-20"] += 1
-        elif 20 <= score < 40:
+        elif score < 40:
             score_ranges["20-40"] += 1
-        elif 40 <= score < 60:
+        elif score < 60:
             score_ranges["40-60"] += 1
-        elif 60 <= score < 80:
+        elif score < 80:
             score_ranges["60-80"] += 1
         else:
             score_ranges["80-100"] += 1
