@@ -1,8 +1,10 @@
 import streamlit as st
-from database import save_assessment
+from database import save_assessment, get_health_score_distribution
 from calculation import calculate_health_percentage, get_result_category
 import json
 import datetime
+import pandas as pd
+import plotly.express as px  # For pie chart
 
 # Load questions
 with open("questions.json", "r") as f:
@@ -27,7 +29,7 @@ def ask_questions():
     for question in questions:
         key = question["key"]
 
-        if key in ["self_harm", "traumatic_event"]:
+        if key in ["self_harm", "traumatic_event"]:  # Now both are 1 or 0
             responses[key] = st.radio(question["text"], [1, 0], format_func=lambda x: "Yes" if x == 1 else "No")
         
         elif key == "mood":
@@ -65,3 +67,18 @@ if st.button("Submit Assessment"):
     }
     save_assessment(assessment)
     st.success("Your assessment has been saved successfully.")
+
+    # Fetch past data distribution
+    distribution = get_health_score_distribution()
+
+    # Convert to DataFrame for visualization
+    df = pd.DataFrame({
+        "Range": ["0-20%", "20-40%", "40-60%", "60-80%", "80-100%"],
+        "Count": distribution
+    })
+
+    # Create a pie chart
+    fig = px.pie(df, values="Count", names="Range", title="Health Score Distribution")
+
+    # Display the pie chart
+    st.plotly_chart(fig)
