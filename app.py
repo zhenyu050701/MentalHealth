@@ -1,84 +1,88 @@
 import streamlit as st
-from database import save_assessment, get_health_score_distribution
-from calculation import calculate_health_percentage, get_result_category
+from pymongo import MongoClient
+import plotly.express as px  # For pie chart
 import json
 import datetime
-import pandas as pd
-import plotly.express as px  # For pie chart
+
+# Load MongoDB credentials from Streamlit secrets
+MONGO_URI = st.secrets["mongo_uri"]
+DB_NAME = st.secrets["db_name"]
+COLLECTION_NAME = st.secrets["collection_name"]
+
+# Connect to MongoDB
+client = MongoClient(MONGO_URI)
+db = client[DB_NAME]
+collection = db[COLLECTION_NAME]
 
 # Load questions
 with open("questions.json", "r") as f:
     questions = json.load(f)
 
-# Mood mapping for numeric scores
-MOOD_SCORES = {
-    "Neutral": 3,
-    "Happy": 5,
-    "Anxious": 2,
-    "Depressed": 1,
-    "Sad": 2
-}
-
 def ask_questions():
     responses = {}
 
-    # Gender selection (not included in calculations)
-    responses["gender"] = st.radio("Select your gender:", ["Male", "Female"])
+    # Ask for gender first
+    gender = st.radio("Select your gender:", ["Male", "Female"])
+    responses["gender"] = gender
 
-    # Loop through questions
     for question in questions:
-        key = question["key"]
-
-        if key in ["self_harm", "traumatic_event"]:  # Now both are 1 or 0
-            responses[key] = st.radio(question["text"], [1, 0], format_func=lambda x: "Yes" if x == 1 else "No")
-        
-        elif key == "mood":
-            mood_choice = st.selectbox(question["text"], list(MOOD_SCORES.keys()))
-            responses[key] = MOOD_SCORES[mood_choice]  # Convert to numeric value
-        
+        if question["key"] in ["self_harm", "traumatic_event"]:
+            responses[question["key"]] = st.radio(question["text"], [0, 1])
+        elif question["key"] == "mood":
+            responses[question["key"]] = st.selectbox(
+                question["text"], ["Neutral", "Happy", "Anxious", "Depressed", "Sad"]
+            )
         else:
-            responses[key] = st.slider(question["text"], 0, 5, 3)  # Always numeric
+            responses[question["key"]] = st.slider(question["text"], 0, 5, 3)
 
     return responses
 
 # Streamlit UI
 st.title("Mental Health Assessment")
 
-# Ask for user input
+if "submitted" not in st.session_state:
+    st.session_state.submitted = False
+
 responses = ask_questions()
 
-# Submit button to display results
 if st.button("Submit Assessment"):
-    # Filter only numeric values for calculation
-    numeric_responses = {k: v for k, v in responses.items() if isinstance(v, (int, float))}
-    
-    health_percentage = calculate_health_percentage(numeric_responses)  # Now only numbers
+    health_percentage = calculate_health_percentage(responses)
     result = get_result_category(health_percentage)
 
-    st.write(f"### Your Health Score: {health_percentage}%")
-    st.write(f"### Result: {result}")
-
-    # Save data to MongoDB (store full responses, but only calculate from numeric ones)
     assessment = {
-        "responses": responses,  # Save all user inputs
+        "responses": responses,
         "health_percentage": health_percentage,
         "result": result,
         "assessment_date": datetime.datetime.now().isoformat()
     }
-    save_assessment(assessment)
-    st.success("Your assessment has been saved successfully.")
 
-    # Fetch past data distribution
-    distribution = get_health_score_distribution()
+    if collection.insert_one(assessment):
+        st.session_state.submitted = True
 
-    # Convert to DataFrame for visualization
-    df = pd.DataFrame({
-        "Range": ["0-20%", "20-40%", "40-60%", "60-80%", "80-100%"],
-        "Count": distribution
-    })
+if st.session_state.submitted:
+    st.write(f"### Your Health Score: {health_percentage}%")
+    st.write(f"### Result: {result}")
 
-    # Create a pie chart
-    fig = px.pie(df, values="Count", names="Range", title="Health Score Distribution")
+    # Fetch all assessments and create a pie chart
+    assessments = list(collection.find({}, {"_id": 0, "health_percentage": 1}))
+    score_ranges = {"0-20": 0, "20-40": 0, "40-60": 0, "60-80": 0, "80-100": 0}
 
-    # Display the pie chart
+    for a in assessments:
+        score = a["health_percentage"]
+        if 0 <= score < 20:
+            score_ranges["0-20"] += 1
+        elif 20 <= score < 40:
+            score_ranges["20-40"] += 1
+        elif 40 <= score < 60:
+            score_ranges["40-60"] += 1
+        elif 60 <= score < 80:
+            score_ranges["60-80"] += 1
+        else:
+            score_ranges["80-100"] += 1
+
+    fig = px.pie(
+        names=list(score_ranges.keys()),
+        values=list(score_ranges.values()),
+        title="Health Score Distribution"
+    )
     st.plotly_chart(fig)
