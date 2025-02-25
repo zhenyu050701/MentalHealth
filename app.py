@@ -26,16 +26,19 @@ def ask_questions():
     responses["gender"] = gender
 
     for question in questions:
-        if question["key"] in ["self_harm", "traumatic_event"]:
-            # Make these binary (0 = No, 1 = Yes)
-            responses[question["key"]] = st.radio(question["text"], [0, 1])
-        elif question["key"] == "mood":
-            responses[question["key"]] = st.selectbox(
+        key = question["key"]
+        
+        if key in ["self_harm", "traumatic_event"]:  
+            # Fix: Ensure binary choice (0 = No, 1 = Yes)
+            responses[key] = st.radio(question["text"], [0, 1], format_func=lambda x: "No" if x == 0 else "Yes")
+        
+        elif key == "mood":
+            responses[key] = st.selectbox(
                 question["text"], ["Neutral", "Happy", "Anxious", "Depressed", "Sad"]
             )
         else:
             # Use slider for other questions (0 to 5 scale)
-            responses[question["key"]] = st.slider(question["text"], 0, 5, 3)
+            responses[key] = st.slider(question["text"], 0, 5, 3)
 
     return responses
 
