@@ -123,4 +123,4 @@ if st.session_state.submitted:
         values=list(score_ranges.values()),
         title="Health Score Distribution"
     )
-    st.plotly_chart(fig)  2 maintain the code above but include the questions that left out from this code
+    st.plotly_chart(fig)  
