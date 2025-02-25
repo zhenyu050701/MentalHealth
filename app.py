@@ -3,12 +3,15 @@ import json
 import datetime
 from pymongo import MongoClient
 
-# Define the weight for the 0-5 scale questions
-weight = 6.67  # Marks per question
-
 # Load questions (Make sure questions.json exists and contains your question data)
 with open("questions.json", "r") as f:
     questions = json.load(f)
+
+# Calculate the number of questions
+total_questions = len(questions)
+
+# Define equal marks for each question based on the total number of questions
+marks_per_question = 100 / total_questions
 
 # Function to ask questions
 def ask_questions():
@@ -48,32 +51,26 @@ def calculate_health_percentage(responses):
 
     for key, value in responses.items():
         if key in ["traumatic_event", "substance_use"]:
-            # For "No" answer (0), give 6.67 points, for "Yes" (1), give 0 points
-            total_score += value * -weight + weight  # If value is 0, it gives weight, if 1, it gives 0
+            # For "No" answer (0), give full marks (marks_per_question), for "Yes" (1), give 0 points
+            total_score += (1 - value) * marks_per_question
         elif key in ["work_stress", "anxiety_level", "stress_level"]:
-            # Reverse scale: For 0 = best, give full marks (6.67), for 5 = worst, give 0 marks
-            total_score += (5 - value) / 5 * weight  # Reversed scale logic
+            # Reverse scale: For 0 = best, give full marks, for 5 = worst, give 0 marks
+            total_score += (5 - value) / 5 * marks_per_question
         elif key == "mood":
-            # We handle mood separately because we need to adjust for full marks
-            mood_score = value
+            # Handle mood scoring
+            if value == "Happy":
+                total_score += marks_per_question  # Happy gets full marks
+            elif value == "Neutral":
+                total_score += 0.75 * marks_per_question  # Neutral gets 75% of the marks
+            elif value == "Anxious":
+                total_score += 0.5 * marks_per_question  # Anxious gets 50% of the marks
+            elif value == "Sad":
+                total_score += 0.25 * marks_per_question  # Sad gets 25% of the marks
+            elif value == "Depressed":
+                total_score += 0  # Depressed gets 0 marks
         elif isinstance(value, int):
             # For other 0-5 scale answers, calculate score proportionally
-            total_score += (value / 5) * weight
-
-    # Now we calculate the remaining marks needed for "Happy" to get 100%
-    remaining_marks = 100 - total_score
-
-    # If the mood is "Happy", we assign the remaining marks
-    if mood_score == "Happy":
-        total_score += remaining_marks  # Assign the remaining marks to "Happy"
-    elif mood_score == "Neutral":
-        total_score += 3.33  # Neutral mood, moderate marks
-    elif mood_score == "Anxious":
-        total_score += 2.67  # Slightly negative mood
-    elif mood_score == "Sad":
-        total_score += 1.33  # Very negative mood
-    elif mood_score == "Depressed":
-        total_score += 0  # Worst mood, no marks
+            total_score += (value / 5) * marks_per_question
 
     return total_score
 
