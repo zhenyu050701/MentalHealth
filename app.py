@@ -18,42 +18,7 @@ collection = db[COLLECTION_NAME]
 with open("questions.json", "r") as f:
     questions = json.load(f)
 
-def calculate_health_percentage(responses):
-    """
-    Calculates a health percentage score based on responses.
-    Adjust this logic as needed.
-    """
-    total_score = 0
-    count = 0
-
-    for key, value in responses.items():
-        if key in ["self_harm", "traumatic_event"]:
-            total_score += value * 20  # Assign weight to 0-1 questions
-        elif isinstance(value, int):  # Ensure it's a numerical value (slider)
-            total_score += value * 10  # Assign weight to 0-5 scale
-        count += 1
-
-    return min(100, (total_score / (count * 10)) * 100)  # Normalize to 100%
-
-def get_result_category(health_percentage):
-    """
-    Categorizes health percentage into result categories.
-    """
-    if health_percentage < 20:
-        return "Severe Mental Distress"
-    elif 20 <= health_percentage < 40:
-        return "Moderate Mental Distress"
-    elif 40 <= health_percentage < 60:
-        return "Mild Mental Distress"
-    elif 60 <= health_percentage < 80:
-        return "Generally Stable"
-    else:
-        return "Mentally Healthy"
-
 def ask_questions():
-    """
-    Generates the mental health questionnaire UI.
-    """
     responses = {}
 
     # Ask for gender first
@@ -62,15 +27,45 @@ def ask_questions():
 
     for question in questions:
         if question["key"] in ["self_harm", "traumatic_event"]:
-            responses[question["key"]] = st.radio(question["text"], [0, 1])  # Only 0 and 1
+            # Use radio button for binary choices
+            responses[question["key"]] = st.radio(question["text"], [0, 1])
         elif question["key"] == "mood":
             responses[question["key"]] = st.selectbox(
                 question["text"], ["Neutral", "Happy", "Anxious", "Depressed", "Sad"]
             )
         else:
+            # Use slider for other questions (0 to 5 scale)
             responses[question["key"]] = st.slider(question["text"], 0, 5, 3)
 
     return responses
+
+def calculate_health_percentage(responses):
+    """Calculates the mental health score based on responses"""
+    total_score = 0
+    max_score = 0
+    
+    for key, value in responses.items():
+        if isinstance(value, int):  # Only consider numeric answers
+            total_score += value
+            max_score += 5  # Assuming each question is on a 0-5 scale
+
+    if max_score == 0:
+        return 0  # Avoid division by zero
+
+    return int((total_score / max_score) * 100)
+
+def get_result_category(score):
+    """Categorizes the mental health score into levels"""
+    if score < 20:
+        return "Severe Risk"
+    elif score < 40:
+        return "High Risk"
+    elif score < 60:
+        return "Moderate Risk"
+    elif score < 80:
+        return "Mild Risk"
+    else:
+        return "Healthy"
 
 # Streamlit UI
 st.title("Mental Health Assessment")
@@ -91,11 +86,8 @@ if st.button("Submit Assessment"):
         "assessment_date": datetime.datetime.now().isoformat()
     }
 
-    try:
-        collection.insert_one(assessment)
+    if collection.insert_one(assessment):
         st.session_state.submitted = True
-    except Exception as e:
-        st.error(f"Error saving data: {e}")
 
 if st.session_state.submitted:
     st.write(f"### Your Health Score: {health_percentage}%")
