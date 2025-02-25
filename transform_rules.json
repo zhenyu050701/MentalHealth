@@ -1,13 +1,29 @@
 {
-    "mood": {
-        "Neutral": 3,
-        "Happy": 4,
-        "Anxious": 2,
-        "Depressed": 1,
-        "Sad": 2
-    },
-    "self_harm": {
-        "0": 0,
-        "1": 0
-    }
+  "mood": {
+    "Depressed": 0,
+    "Sad": 25,
+    "Neutral": 50,
+    "Happy": 75,
+    "Anxious": 25
+  },
+  "negative_scale": {
+    "0": 100,
+    "1": 80,
+    "2": 60,
+    "3": 40,
+    "4": 20,
+    "5": 0
+  },
+  "positive_scale": {
+    "0": 0,
+    "1": 20,
+    "2": 40,
+    "3": 60,
+    "4": 80,
+    "5": 100
+  },
+  "binary_risk": {
+    "0": 100,
+    "1": 0
+  }
 }
