@@ -26,15 +26,18 @@ def ask_questions():
     responses["gender"] = gender
 
     for question in questions:
-        if question["key"] in ["self_harm", "traumatic_event"]:
-            # Use radio button for binary choices (0 = No, 1 = Yes)
+        if question["key"] == "self_harm":
+            # Binary choice (0 = No, 1 = Yes)
             responses[question["key"]] = st.radio(question["text"], [0, 1])
+        elif question["key"] == "traumatic_event":
+            # Ensure traumatic_event follows 1-0 format (1 = Yes, 0 = No)
+            responses[question["key"]] = st.radio(question["text"], [1, 0])
         elif question["key"] == "mood":
             responses[question["key"]] = st.selectbox(
                 question["text"], ["Neutral", "Happy", "Anxious", "Depressed", "Sad"]
             )
-        elif question["key"] in ["anxiety_level", "stress_level", "depression_level"]: 
-            # Keep these at 0-5 scale
+        else:
+            # Use slider for other questions (0 to 5 scale)
             responses[question["key"]] = st.slider(question["text"], 0, 5, 3)
 
     return responses
@@ -45,8 +48,11 @@ def calculate_health_percentage(responses):
     max_score = 0
     
     for key, value in responses.items():
-        if key in ["self_harm", "traumatic_event"]:  
+        if key == "self_harm":  
             max_score += 1  # Binary scale (0-1)
+        elif key == "traumatic_event":
+            max_score += 1  # Binary but in 1-0 format
+            total_score += 1 - value  # Convert 1-0 to a normal scoring system
         elif isinstance(value, int):  
             total_score += value
             max_score += 5  # Assuming each question is on a 0-5 scale
