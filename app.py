@@ -33,6 +33,9 @@ def ask_questions():
             responses[question["key"]] = st.selectbox(
                 question["text"], ["Neutral", "Happy", "Anxious", "Depressed", "Sad"]
             )
+        elif question["key"] in ["work_stress", "anxiety_level"]:
+            # For work stress and anxiety level, use slider (0 to 5)
+            responses[question["key"]] = st.slider(question["text"], 0, 5, 3)
         else:
             # Use slider for other questions (0 to 5 scale)
             responses[question["key"]] = st.slider(question["text"], 0, 5, 3)
@@ -47,6 +50,9 @@ def calculate_health_percentage(responses):
         if key in ["traumatic_event", "substance_use"]:
             # For "No" answer (0), give 6.67 points, for "Yes" (1), give 0 points
             total_score += value * -weight + weight  # If value is 0, it gives weight, if 1, it gives 0
+        elif key in ["work_stress", "anxiety_level"]:
+            # Reverse scale: For 0 = best, give full marks (6.67), for 5 = worst, give 0 marks
+            total_score += (5 - value) / 5 * weight  # Reversed scale logic
         elif isinstance(value, int):
             # For other 0-5 scale answers, calculate score proportionally
             total_score += (value / 5) * weight
