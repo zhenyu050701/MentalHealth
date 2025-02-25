@@ -21,7 +21,7 @@ with open("questions.json", "r") as f:
 def ask_questions():
     responses = {}
 
-    # Ask for gender first
+    # Ask for gender first (no scoring here)
     gender = st.radio("Select your gender:", ["Male", "Female"])
     responses["gender"] = gender
 
@@ -43,24 +43,28 @@ def ask_questions():
     return responses
 
 def calculate_health_percentage(responses):
-    """Calculates the mental health score based on responses"""
+    """Calculates the mental health score based on responses."""
     total_score = 0
-    max_score = 0
-    
+    max_score = 100  # Total maximum score
+
+    # Weightings for each question
+    slider_weight = 8.33  # For slider-based questions
+    mood_weight = 5  # For mood question
+    self_harm_weight = 5  # For self-harm question
+    traumatic_event_weight = 5  # For traumatic event question
+
     for key, value in responses.items():
-        if key == "self_harm":  
-            max_score += 1  # Binary scale (0-1)
+        if key == "self_harm":
+            total_score += value * self_harm_weight
         elif key == "traumatic_event":
-            max_score += 1  # Binary but in 1-0 format
-            total_score += 1 - value  # Convert 1-0 to a normal scoring system
-        elif isinstance(value, int):  
-            total_score += value
-            max_score += 5  # Assuming each question is on a 0-5 scale
+            total_score += value * traumatic_event_weight
+        elif key == "mood":
+            # Mood scale (0-4) mapped to the range 0-5 for weighting
+            total_score += (value / 4) * mood_weight
+        elif isinstance(value, int):  # Slider questions (0-5)
+            total_score += value * slider_weight / 5
 
-    if max_score == 0:
-        return 0  # Avoid division by zero
-
-    return int((total_score / max_score) * 100)
+    return int(total_score)
 
 def get_result_category(score):
     """Categorizes the mental health score into levels"""
@@ -100,5 +104,3 @@ if st.button("Submit Assessment"):
 if st.session_state.submitted:
     st.write(f"### Your Health Score: {health_percentage}%")
     st.write(f"### Result: {result}")
-
-
