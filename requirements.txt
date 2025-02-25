@@ -6,3 +6,4 @@ pymongo
 XlsxWriter
 Pillow
 plotly
+calculation
