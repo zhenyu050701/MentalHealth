@@ -2,6 +2,19 @@ import streamlit as st
 import json
 from datetime import datetime
 from calculation import calculate_health_percentage, get_result_category
+from pymongo import MongoClient
+
+
+# Load MongoDB credentials from Streamlit secrets
+MONGO_URI = st.secrets["mongo_uri"]
+DB_NAME = st.secrets["db_name"]
+COLLECTION_NAME = st.secrets["collection_name"]
+
+# Connect to MongoDB
+client = MongoClient(MONGO_URI)
+db = client[DB_NAME]
+collection = db[COLLECTION_NAME]
+
 
 # Load questions and config
 with open("questions.json") as f:
