@@ -36,3 +36,17 @@ def delete_assessment(filter_query):
     except Exception as e:
         st.error(f"Error deleting assessment: {e}")
         return False
+
+def get_health_score_distribution():
+    """Retrieve the count of assessments in each health score range."""
+    ranges = [(0, 20), (20, 40), (40, 60), (60, 80), (80, 100)]
+    distribution = {}
+
+    try:
+        for r in ranges:
+            count = collection.count_documents({"health_percentage": {"$gte": r[0], "$lt": r[1]}})
+            distribution[f"{r[0]}-{r[1]}"] = count
+        return distribution
+    except Exception as e:
+        st.error(f"Error fetching health score distribution: {e}")
+        return {}
