@@ -29,8 +29,8 @@ def ask_questions():
             # Binary choice (0 = No, 1 = Yes)
             responses[question["key"]] = st.radio(question["text"], [0, 1])
         elif question["key"] == "traumatic_event" or question["key"] == "substance_use":
-            # Binary selection for traumatic event and substance use (0 = No, 1 = Yes)
-            responses[question["key"]] = st.radio(question["text"], ["No", "Yes"])  # Modified to Yes/No
+            # Binary choice (Yes = 1, No = 0)
+            responses[question["key"]] = st.radio(question["text"], ["No", "Yes"])  # Yes/No selection
         elif question["key"] == "mood":
             responses[question["key"]] = st.selectbox(
                 question["text"], ["Neutral", "Happy", "Anxious", "Depressed", "Sad"]
