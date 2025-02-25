@@ -153,6 +153,22 @@ def main():
 
     # Show analytics
     show_analytics()
+# Add these to your existing code
+def clean_gender_data(df):
+    """Fix messy gender data"""
+    df['gender'] = df['gender'].str.strip().str.title()
+    valid = ['Male', 'Female']
+    return df[df['gender'].isin(valid)].copy()
+
+def fix_csv_columns(df):
+    """Repair misaligned CSV data"""
+    return df.iloc[:, :21]  # Keep first 21 columns from your CSV
+
+def show_gender_pie(df):
+    """Display pie chart"""
+    counts = df['gender'].value_counts().reindex(['Male','Female'], fill_value=0)
+    fig = px.pie(counts, values=counts, names=counts.index)
+    st.plotly_chart(fig)
 
 if __name__ == "__main__":
     main()
