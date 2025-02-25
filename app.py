@@ -110,7 +110,7 @@ if st.session_state.submitted:
     score_ranges = {"0-20": 0, "20-40": 0, "40-60": 0, "60-80": 0, "80-100": 0}
 
     # Loop through assessments and categorize the scores into ranges
-    for a in assessments:
+    /*for a in assessments:
         if "health_percentage" in a:  # Check if the key exists
             score = a["health_percentage"]
             if 0 <= score < 20:
@@ -130,4 +130,4 @@ if st.session_state.submitted:
         values=list(score_ranges.values()),
         title="Health Score Distribution"
     )
-    st.plotly_chart(fig)
+    st.plotly_chart(fig)*/
