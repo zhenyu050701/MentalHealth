@@ -1,6 +1,5 @@
 import streamlit as st
 from pymongo import MongoClient
-import plotly.express as px  # For pie chart
 import json
 import datetime
 
@@ -29,9 +28,9 @@ def ask_questions():
         if question["key"] == "self_harm":
             # Binary choice (0 = No, 1 = Yes)
             responses[question["key"]] = st.radio(question["text"], [0, 1])
-        elif question["key"] == "traumatic_event":
-            # Binary selection for traumatic event (0 = No, 1 = Yes)
-            responses[question["key"]] = st.radio(question["text"], [0, 1])  # Modified to 0 or 1
+        elif question["key"] == "traumatic_event" or question["key"] == "substance_use":
+            # Binary selection for traumatic event and substance use (0 = No, 1 = Yes)
+            responses[question["key"]] = st.radio(question["text"], [0, 1])  # Modified to Yes/No (0/1)
         elif question["key"] == "mood":
             responses[question["key"]] = st.selectbox(
                 question["text"], ["Neutral", "Happy", "Anxious", "Depressed", "Sad"]
@@ -50,7 +49,7 @@ def calculate_health_percentage(responses):
     for key, value in responses.items():
         if key == "self_harm":  
             max_score += 1  # Binary scale (0-1)
-        elif key == "traumatic_event":
+        elif key == "traumatic_event" or key == "substance_use":
             max_score += 1  # Binary but in 1-0 format
             total_score += value  # Direct scoring for 1 or 0
         elif isinstance(value, int):  
