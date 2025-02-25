@@ -65,7 +65,7 @@ def calculate_health_percentage(responses):
 def get_result_category(score):
     """Categorizes the mental health score into levels"""
     if score < 20:
-        return "Severe Risk" 
+        return "Severe Risk"
     elif score < 40:
         return "High Risk"
     elif score < 60:
@@ -123,4 +123,4 @@ if st.session_state.submitted:
         values=list(score_ranges.values()),
         title="Health Score Distribution"
     )
-    st.plotly_chart(fig)
+    st.plotly_chart(fig)  2 maintain the code above but include the questions that left out from this code
