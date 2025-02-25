@@ -54,13 +54,13 @@ def calculate_health_percentage(responses):
             if value == "Happy":
                 total_score += marks_per_question  # Happy gets full marks
             elif value == "Neutral":
-                total_score += 0.75 * marks_per_question  # Neutral gets 75% of the marks
+                total_score += 0.8 * marks_per_question  # Neutral gets 80% of the marks
             elif value == "Anxious":
-                total_score += 0.5 * marks_per_question  # Anxious gets 50% of the marks
+                total_score += 0.6 * marks_per_question  # Anxious gets 60% of the marks
             elif value == "Sad":
-                total_score += 0.25 * marks_per_question  # Sad gets 25% of the marks
+                total_score += 0.4 * marks_per_question  # Sad gets 40% of the marks
             elif value == "Depressed":
-                total_score += 0  # Depressed gets 0 marks
+                total_score += 0.2 * marks_per_question  # Depressed gets 20% of the marks
         elif isinstance(value, int):
             # For other 0-5 scale answers, calculate score proportionally
             total_score += (value / 5) * marks_per_question
