@@ -27,33 +27,43 @@ def ask_questions():
 
     for question in questions:
         if question["key"] == "self_harm":
+            # Binary choice (0 = No, 1 = Yes)
             responses[question["key"]] = st.radio(question["text"], [0, 1])
         elif question["key"] == "traumatic_event":
+            # Ensure traumatic_event follows 1-0 format (1 = Yes, 0 = No)
             responses[question["key"]] = st.radio(question["text"], [1, 0])
-        elif question["key"] == "mood"]:
+        elif question["key"] == "mood":
             responses[question["key"]] = st.selectbox(
                 question["text"], ["Neutral", "Happy", "Anxious", "Depressed", "Sad"]
             )
         else:
+            # Use slider for other questions (0 to 5 scale)
             responses[question["key"]] = st.slider(question["text"], 0, 5, 3)
-    
+
     return responses
 
 def calculate_health_percentage(responses):
+    """Calculates the mental health score based on responses"""
     total_score = 0
     max_score = 0
     
     for key, value in responses.items():
-        if key in ["self_harm", "traumatic_event"]:
-            max_score += 1
-            total_score += 1 - value if key == "traumatic_event" else value
-        elif isinstance(value, int):
+        if key == "self_harm":  
+            max_score += 1  # Binary scale (0-1)
+        elif key == "traumatic_event":
+            max_score += 1  # Binary but in 1-0 format
+            total_score += 1 - value  # Convert 1-0 to a normal scoring system
+        elif isinstance(value, int):  
             total_score += value
-            max_score += 5  # Assuming 0-5 scale
+            max_score += 5  # Assuming each question is on a 0-5 scale
 
-    return int((total_score / max_score) * 100) if max_score else 0
+    if max_score == 0:
+        return 0  # Avoid division by zero
+
+    return int((total_score / max_score) * 100)
 
 def get_result_category(score):
+    """Categorizes the mental health score into levels"""
     if score < 20:
         return "Severe Risk"
     elif score < 40:
@@ -97,13 +107,13 @@ if st.session_state.submitted:
 
     for a in assessments:
         score = a["health_percentage"]
-        if score < 20:
+        if 0 <= score < 20:
             score_ranges["0-20"] += 1
-        elif score < 40:
+        elif 20 <= score < 40:
             score_ranges["20-40"] += 1
-        elif score < 60:
+        elif 40 <= score < 60:
             score_ranges["40-60"] += 1
-        elif score < 80:
+        elif 60 <= score < 80:
             score_ranges["60-80"] += 1
         else:
             score_ranges["80-100"] += 1
@@ -113,4 +123,4 @@ if st.session_state.submitted:
         values=list(score_ranges.values()),
         title="Health Score Distribution"
     )
-    st.plotly_chart(fig)
+    st.plotly_chart(fig)  2 
