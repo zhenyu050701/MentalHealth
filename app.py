@@ -7,10 +7,10 @@ from pymongo import MongoClient
 with open("questions.json", "r") as f:
     questions = json.load(f)
 
-# Calculate the number of questions
+# Total number of questions
 total_questions = len(questions)
 
-# Define equal marks for each question based on the total number of questions
+# Define equal marks for each question (each question gets 100/total_questions marks)
 marks_per_question = 100 / total_questions
 
 # Function to ask questions
@@ -23,23 +23,18 @@ def ask_questions():
 
     for question in questions:
         if question["key"] == "self_harm":
-            # Binary choice (0 = No, 1 = Yes)
             responses[question["key"]] = st.radio(question["text"], [0, 1])
         elif question["key"] == "traumatic_event":
-            # Yes/No options for traumatic event (0 = No, 1 = Yes)
             responses[question["key"]] = st.radio(question["text"], [0, 1])  # No=0, Yes=1
         elif question["key"] == "substance_use":
-            # Yes/No options for substance use (0 = No, 1 = Yes)
             responses[question["key"]] = st.radio(question["text"], [0, 1])  # No=0, Yes=1
         elif question["key"] == "mood":
             responses[question["key"]] = st.selectbox(
                 question["text"], ["Neutral", "Happy", "Anxious", "Depressed", "Sad"]
             )
         elif question["key"] in ["work_stress", "anxiety_level", "stress_level"]:
-            # For stress level, work stress, and anxiety level, use slider (0 to 5)
             responses[question["key"]] = st.slider(question["text"], 0, 5, 3)
         else:
-            # Use slider for other questions (0 to 5 scale)
             responses[question["key"]] = st.slider(question["text"], 0, 5, 3)
 
     return responses
@@ -47,7 +42,6 @@ def ask_questions():
 # Function to calculate the mental health percentage
 def calculate_health_percentage(responses):
     total_score = 0
-    mood_score = 0  # We'll handle mood scoring separately
 
     for key, value in responses.items():
         if key in ["traumatic_event", "substance_use"]:
@@ -57,7 +51,7 @@ def calculate_health_percentage(responses):
             # Reverse scale: For 0 = best, give full marks, for 5 = worst, give 0 marks
             total_score += (5 - value) / 5 * marks_per_question
         elif key == "mood":
-            # Handle mood scoring
+            # Handle mood scoring to ensure "Happy" gets the full marks
             if value == "Happy":
                 total_score += marks_per_question  # Happy gets full marks
             elif value == "Neutral":
@@ -84,6 +78,9 @@ responses = ask_questions()
 if st.button("Submit Assessment"):
     health_percentage = calculate_health_percentage(responses)
     
+    # Ensure the total score is exactly 100
+    health_percentage = min(100, max(0, health_percentage))  # Bound the score between 0 and 100
+    
     # Calculate the result category
     if health_percentage < 20:
         result = "Severe Risk"
@@ -108,4 +105,4 @@ if st.button("Submit Assessment"):
     st.write(f"### Your Health Score: {health_percentage:.2f}%")
     st.write(f"### Result: {result}")
 
-    # You can also save this result to a database or file if needed.
+    # Optionally save this result to a database or file if needed.
