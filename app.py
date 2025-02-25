@@ -3,7 +3,6 @@ import json
 import datetime
 from pymongo import MongoClient
 
-
 # Define the weight for the 0-5 scale questions
 weight = 6.67  # Marks per question
 
@@ -42,9 +41,10 @@ def ask_questions():
 
     return responses
 
-# Calculate the mental health percentage
+# Function to calculate the mental health percentage
 def calculate_health_percentage(responses):
     total_score = 0
+    mood_score = 0  # We'll handle mood scoring separately
 
     for key, value in responses.items():
         if key in ["traumatic_event", "substance_use"]:
@@ -53,9 +53,27 @@ def calculate_health_percentage(responses):
         elif key in ["work_stress", "anxiety_level", "stress_level"]:
             # Reverse scale: For 0 = best, give full marks (6.67), for 5 = worst, give 0 marks
             total_score += (5 - value) / 5 * weight  # Reversed scale logic
+        elif key == "mood":
+            # We handle mood separately because we need to adjust for full marks
+            mood_score = value
         elif isinstance(value, int):
             # For other 0-5 scale answers, calculate score proportionally
             total_score += (value / 5) * weight
+
+    # Now we calculate the remaining marks needed for "Happy" to get 100%
+    remaining_marks = 100 - total_score
+
+    # If the mood is "Happy", we assign the remaining marks
+    if mood_score == "Happy":
+        total_score += remaining_marks  # Assign the remaining marks to "Happy"
+    elif mood_score == "Neutral":
+        total_score += 3.33  # Neutral mood, moderate marks
+    elif mood_score == "Anxious":
+        total_score += 2.67  # Slightly negative mood
+    elif mood_score == "Sad":
+        total_score += 1.33  # Very negative mood
+    elif mood_score == "Depressed":
+        total_score += 0  # Worst mood, no marks
 
     return total_score
 
