@@ -10,8 +10,8 @@ from calculation import calculate_health_percentage, get_result_category
 with open("questions.json") as f:
     QUESTIONS = json.load(f)
 
-# MongoDB connection with cache refresh
-@st.cache_resource(ttl=300)  # Refresh every 5 minutes
+# MongoDB connection
+@st.cache_resource(ttl=300)
 def init_mongo():
     try:
         client = MongoClient(st.secrets["mongo_uri"])
@@ -56,37 +56,67 @@ def show_analytics():
             st.warning("No data available yet. Complete an assessment first!")
             return
 
-        # Convert MongoDB data
+        # Convert and clean data
         clean_data = convert_mongo_docs(raw_data)
         df = pd.DataFrame(clean_data)
-
-        # Ensure gender field is properly formatted
+        
+        # Standardize gender values
         df['gender'] = df['gender'].str.strip().str.title()
 
         # Gender Distribution Pie Chart
         st.subheader("👥 Gender Distribution")
+        
+        # Get counts with proper column names
         gender_counts = df['gender'].value_counts().reset_index()
         gender_counts.columns = ['Gender', 'Count']
         
-        # Ensure both genders are always shown
+        # Ensure both genders appear even with zero counts
         all_genders = pd.DataFrame({'Gender': ['Male', 'Female'], 'Count': [0, 0]})
-        gender_counts = pd.concat([gender_counts, all_genders]).groupby('Gender').sum().reset_index()
-        
+        gender_counts = pd.concat([gender_counts, all_genders])
+        gender_counts = gender_counts.groupby('Gender', as_index=False).sum()
+
+        # Create pie chart with correct column references
         fig = px.pie(gender_counts,
                      values='Count',
                      names='Gender',
                      color='Gender',
                      color_discrete_map={'Male':'#1f77b4',
                                         'Female':'#ff7f0e'},
-                     category_orders={"Gender": ["Male", "Female"]},
                      hole=0.3)
         
         fig.update_traces(texttemplate='%{label}<br>%{value} (%{percent})',
                           hoverinfo='label+percent+value')
         st.plotly_chart(fig, use_container_width=True)
 
-        # Rest of analytics code...
-        # [Keep existing score distribution and other charts here]
+        # Average Scores
+        st.subheader("📈 Average Mental Health Scores")
+        avg_scores = df.groupby("gender")["health_percentage"].mean().reset_index()
+        fig = px.bar(avg_scores, 
+                    x="gender", 
+                    y="health_percentage",
+                    color="gender",
+                    labels={"health_percentage": "Average Score (%)"},
+                    text_auto=".2f")
+        st.plotly_chart(fig)
+
+        # Score Distribution
+        st.subheader("📊 Score Distribution by Gender")
+        fig = px.box(df, 
+                    x="gender", 
+                    y="health_percentage", 
+                    color="gender",
+                    points="all",
+                    hover_data=["stress_level", "anxiety_level", "mood"])
+        st.plotly_chart(fig)
+
+        # Result Categories
+        st.subheader("🏷️ Result Category Distribution")
+        category_counts = df.groupby(["gender", "result_category"]).size().unstack().fillna(0)
+        fig = px.bar(category_counts, 
+                    barmode="group",
+                    labels={"value": "Number of Assessments"},
+                    title="Results by Gender")
+        st.plotly_chart(fig)
 
     except Exception as e:
         st.error(f"Error loading analytics: {str(e)}")
