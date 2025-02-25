@@ -15,6 +15,8 @@ def get_result_category(score):
 def main():
     st.title("Mental Health Risk Assessment")
     
+    gender = st.radio("Select your gender:", ["Male", "Female", "Other"])
+    
     questions = [
         "Do you feel hopeless?",
         "Do you have trouble sleeping?",
