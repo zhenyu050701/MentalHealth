@@ -9,22 +9,8 @@ with open("questions.json", "r") as f:
 # Total number of questions
 total_questions = len(questions)
 
-# Total Marks (100)
-total_marks = 100
-
-# Function to calculate marks per question
-def calculate_marks_per_question():
-    marks_per_question = total_marks / total_questions
-    return marks_per_question
-
-# Mood scoring weights (balanced distribution)
-mood_scores = {
-    "Happy": 1.0,    # Happy gets full marks (1.0)
-    "Neutral": 0.8,   # Neutral gets 80% of the marks
-    "Anxious": 0.6,   # Anxious gets 60% of the marks
-    "Sad": 0.4,       # Sad gets 40% of the marks
-    "Depressed": 0.2  # Depressed gets 20% of the marks
-}
+# Marks distribution: Each question will contribute equally to the final score
+marks_per_question = 100 / total_questions
 
 # Function to ask questions
 def ask_questions():
@@ -59,16 +45,25 @@ def calculate_health_percentage(responses):
     for key, value in responses.items():
         if key in ["traumatic_event", "substance_use"]:
             # For "No" answer (0), give full marks (marks_per_question), for "Yes" (1), give 0 points
-            total_score += (1 - value) * calculate_marks_per_question()
+            total_score += (1 - value) * marks_per_question
         elif key in ["work_stress", "anxiety_level", "stress_level"]:
             # Reverse scale: For 0 = best, give full marks, for 5 = worst, give 0 marks
-            total_score += (5 - value) / 5 * calculate_marks_per_question()
+            total_score += (5 - value) / 5 * marks_per_question
         elif key == "mood":
-            # Use balanced mood scores
-            total_score += mood_scores.get(value, 0) * calculate_marks_per_question()
+            # Handle mood scoring to ensure "Happy" gets the full marks (100% for Happy)
+            if value == "Happy":
+                total_score += marks_per_question  # Happy gets full marks
+            elif value == "Neutral":
+                total_score += 0.8 * marks_per_question  # Neutral gets 80% of the marks
+            elif value == "Anxious":
+                total_score += 0.6 * marks_per_question  # Anxious gets 60% of the marks
+            elif value == "Sad":
+                total_score += 0.4 * marks_per_question  # Sad gets 40% of the marks
+            elif value == "Depressed":
+                total_score += 0.2 * marks_per_question  # Depressed gets 20% of the marks
         elif isinstance(value, int):
             # For other 0-5 scale answers, calculate score proportionally
-            total_score += (value / 5) * calculate_marks_per_question()
+            total_score += (value / 5) * marks_per_question
 
     return total_score
 
