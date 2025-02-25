@@ -33,9 +33,11 @@ def ask_questions():
             # Ensure traumatic_event follows 1-0 format (1 = Yes, 0 = No)
             responses[question["key"]] = st.radio(question["text"], [1, 0])
         elif question["key"] == "mood":
-            responses[question["key"]] = st.selectbox(
-                question["text"], ["Neutral", "Happy", "Anxious", "Depressed", "Sad"]
-            )
+            # Convert the mood response to a numeric value (0 to 4 scale)
+            mood_values = ["Neutral", "Happy", "Anxious", "Depressed", "Sad"]
+            responses[question["key"]] = mood_values.index(st.selectbox(
+                question["text"], mood_values
+            ))
         else:
             # Use slider for other questions (0 to 5 scale)
             responses[question["key"]] = st.slider(question["text"], 0, 5, 3)
