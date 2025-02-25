@@ -65,7 +65,7 @@ def calculate_health_percentage(responses):
 def get_result_category(score):
     """Categorizes the mental health score into levels"""
     if score < 20:
-        return "Severe Risk" make this the same like self-harm so the user only can choose either 0 or 1 
+        return "Severe Risk" 
     elif score < 40:
         return "High Risk"
     elif score < 60:
