@@ -15,6 +15,15 @@ collection = db["Assessments"]
 with open("questions.json", "r") as f:
     questions = json.load(f)
 
+# Mood mapping (convert moods to numerical scores)
+MOOD_SCORES = {
+    "Neutral": 3,
+    "Happy": 5,
+    "Anxious": 2,
+    "Depressed": 1,
+    "Sad": 1
+}
+
 def ask_questions():
     responses = {}
 
@@ -27,7 +36,8 @@ def ask_questions():
         if question["key"] in ["self_harm", "traumatic_event"]:
             responses[question["key"]] = st.radio(question["text"], [1, 0], format_func=lambda x: "Yes" if x == 1 else "No")
         elif question["key"] == "mood":
-            responses[question["key"]] = st.selectbox(question["text"], ["Neutral", "Happy", "Anxious", "Depressed", "Sad"])
+            mood_choice = st.selectbox(question["text"], list(MOOD_SCORES.keys()))
+            responses[question["key"]] = MOOD_SCORES[mood_choice]  # Convert mood to numeric score
         else:
             responses[question["key"]] = st.slider(question["text"], 0, 5, 3)
 
@@ -40,7 +50,7 @@ responses = ask_questions()
 
 # Submit button
 if st.button("Submit"):
-    health_percentage = calculate_health_percentage(responses)
+    health_percentage = calculate_health_percentage(responses)  # Should work now!
     result = get_result_category(health_percentage)
 
     # Display results after pressing Submit
