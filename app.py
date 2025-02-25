@@ -1,26 +1,21 @@
 import streamlit as st
-from pymongo import MongoClient
 import json
 import datetime
+from pymongo import MongoClient
 
-# Load MongoDB credentials from Streamlit secrets
-MONGO_URI = st.secrets["mongo_uri"]
-DB_NAME = st.secrets["db_name"]
-COLLECTION_NAME = st.secrets["collection_name"]
 
-# Connect to MongoDB
-client = MongoClient(MONGO_URI)
-db = client[DB_NAME]
-collection = db[COLLECTION_NAME]
+# Define the weight for the 0-5 scale questions
+weight = 6.67  # Marks per question
 
-# Load questions from the questions.json file
+# Load questions (Make sure questions.json exists and contains your question data)
 with open("questions.json", "r") as f:
     questions = json.load(f)
 
+# Function to ask questions
 def ask_questions():
     responses = {}
 
-    # Ask for gender first
+    # Ask gender first (no scoring)
     gender = st.radio("Select your gender:", ["Male", "Female"])
     responses["gender"] = gender
 
@@ -28,9 +23,12 @@ def ask_questions():
         if question["key"] == "self_harm":
             # Binary choice (0 = No, 1 = Yes)
             responses[question["key"]] = st.radio(question["text"], [0, 1])
-        elif question["key"] == "traumatic_event" or question["key"] == "substance_use":
-            # Binary choice (Yes = 1, No = 0)
-            responses[question["key"]] = st.radio(question["text"], ["No", "Yes"])  # Yes/No selection
+        elif question["key"] == "traumatic_event":
+            # Yes/No options for traumatic event (0 = No, 1 = Yes)
+            responses[question["key"]] = st.radio(question["text"], [0, 1])  # No=0, Yes=1
+        elif question["key"] == "substance_use":
+            # Yes/No options for substance use (0 = No, 1 = Yes)
+            responses[question["key"]] = st.radio(question["text"], [0, 1])  # No=0, Yes=1
         elif question["key"] == "mood":
             responses[question["key"]] = st.selectbox(
                 question["text"], ["Neutral", "Happy", "Anxious", "Depressed", "Sad"]
@@ -41,52 +39,43 @@ def ask_questions():
 
     return responses
 
+# Calculate the mental health percentage
 def calculate_health_percentage(responses):
-    """Calculates the mental health score based on responses"""
     total_score = 0
-    max_score = 0
-    
+
     for key, value in responses.items():
-        if key == "self_harm":  
-            max_score += 1  # Binary scale (0-1)
-            total_score += value
-        elif key == "traumatic_event" or key == "substance_use":
-            max_score += 1  # Binary but in Yes/No format
-            total_score += 1 if value == "Yes" else 0  # Convert "Yes" to 1, "No" to 0
-        elif isinstance(value, int):  
-            total_score += value
-            max_score += 5  # Assuming each question is on a 0-5 scale
+        if key in ["traumatic_event", "substance_use"]:
+            # For "No" answer (0), give 6.67 points, for "Yes" (1), give 0 points
+            total_score += value * -weight + weight  # If value is 0, it gives weight, if 1, it gives 0
+        elif isinstance(value, int):
+            # For other 0-5 scale answers, calculate score proportionally
+            total_score += (value / 5) * weight
 
-    if max_score == 0:
-        return 0  # Avoid division by zero
-
-    return int((total_score / max_score) * 100)
-
-def get_result_category(score):
-    """Categorizes the mental health score into levels"""
-    if score < 20:
-        return "Severe Risk"
-    elif score < 40:
-        return "High Risk"
-    elif score < 60:
-        return "Moderate Risk"
-    elif score < 80:
-        return "Mild Risk"
-    else:
-        return "Healthy"
+    return total_score
 
 # Streamlit UI
 st.title("Mental Health Assessment")
 
-if "submitted" not in st.session_state:
-    st.session_state.submitted = False
-
+# Initialize the responses
 responses = ask_questions()
 
+# Submit the form
 if st.button("Submit Assessment"):
     health_percentage = calculate_health_percentage(responses)
-    result = get_result_category(health_percentage)
+    
+    # Calculate the result category
+    if health_percentage < 20:
+        result = "Severe Risk"
+    elif health_percentage < 40:
+        result = "High Risk"
+    elif health_percentage < 60:
+        result = "Moderate Risk"
+    elif health_percentage < 80:
+        result = "Mild Risk"
+    else:
+        result = "Healthy"
 
+    # Record the assessment with responses and result
     assessment = {
         "responses": responses,
         "health_percentage": health_percentage,
@@ -94,10 +83,8 @@ if st.button("Submit Assessment"):
         "assessment_date": datetime.datetime.now().isoformat()
     }
 
-    # Insert data into MongoDB
-    if collection.insert_one(assessment):
-        st.session_state.submitted = True
-
-if st.session_state.submitted:
-    st.write(f"### Your Health Score: {health_percentage}%")
+    # Display the result
+    st.write(f"### Your Health Score: {health_percentage:.2f}%")
     st.write(f"### Result: {result}")
+
+    # You can also save this result to a database or file if needed.
