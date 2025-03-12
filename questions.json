@@ -1,82 +1,82 @@
 [
   {
-    "key": "age",
+    "key": "Age ",
     "text": "Enter your age",
     "type": "number"
   },
   {
-    "key": "stress_level",
+    "key": "Stress Level ",
     "text": "Stress level (0 = None, 5 = Extreme)",
     "type": "negative_scale"
   },
   {
-    "key": "sleep_quality",
+    "key": "Sleep Quality ",
     "text": "Sleep quality (0 = Poor, 5 = Excellent)",
     "type": "positive_scale"
   },
   {
-    "key": "anxiety_level",
+    "key": "Anxiety Level ",
     "text": "Anxiety level (0 = None, 5 = Extreme)",
     "type": "negative_scale"
   },
   {
-    "key": "self_harm",
+    "key": "Self Harm ",
     "text": "Engaged in self-harm?",
     "type": "binary_risk"
   },
   {
-    "key": "traumatic_event",
+    "key": "Recent Tramatic Events ",
     "text": "Recent traumatic event?",
     "type": "binary_risk"
   },
   {
-    "key": "substance_use",
+    "key": "Substance Use ",
     "text": "Used substances?",
     "type": "binary_risk"
   },
   {
-    "key": "mood",
+    "key": "Mood ",
     "text": "Current mood",
     "type": "mood",
     "options": ["Depressed", "Sad", "Neutral", "Happy", "Anxious"]
   },
   {
-    "key": "physical_activity",
+    "key": "Physical Activity ",
     "text": "Physical activity (0 = None, 5 = Daily)",
     "type": "positive_scale"
   },
   {
-    "key": "social_support",
+    "key": "Social Support ",
     "text": "Social support (0 = None, 5 = Strong)",
     "type": "positive_scale"
   },
   {
-    "key": "diet_quality",
+    "key": "Diet Quality ",
     "text": "Diet quality (0 = Poor, 5 = Excellent)",
     "type": "positive_scale"
   },
   {
-    "key": "work_stress",
+    "key": "Work Stress ",
     "text": "Work stress (0 = None, 5 = Extreme)",
     "type": "negative_scale"
   },
   {
-    "key": "family_support",
+    "key": "Family Support ",
     "text": "Family support (0 = None, 5 = Strong)",
     "type": "positive_scale"
   },
   {
-    "key": "life_satisfaction",
+    "key": "life Satisfaction ",
     "text": "Life satisfaction (0 = Low, 5 = High)",
     "type": "positive_scale"
   },
   {
-    "key": "self_esteem",
+    "key": "Self Esteem ",
     "text": "Self-esteem (0 = Low, 5 = High)",
     "type": "positive_scale"
   },
   {
-    "key": "concentration_level",
+    "key": "Concentration Level ",
     "text": "Concentration (0 = Poor, 5 = Excellent)",
     "type": "positive_scale"
   }
