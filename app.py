@@ -71,8 +71,8 @@ def show_analytics():
         df = clean_gender_data(df)
 
         st.subheader("👥 Gender Distribution")
-        gender_counts = df['Gender '].value_counts().reset_index()
-        gender_counts.columns = ['Gender ', 'Count']
+        gender_counts = df['Gender'].value_counts().reset_index()
+        gender_counts.columns = ['Gender', 'Count']
         all_genders = pd.DataFrame({'Gender': ['Male', 'Female'], 'Count': [0, 0]})
         gender_counts = pd.concat([gender_counts, all_genders])
         gender_counts = gender_counts.groupby('Gender', as_index=False)['Count'].sum()
