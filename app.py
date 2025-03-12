@@ -6,11 +6,11 @@ from datetime import datetime
 from pymongo import MongoClient
 from calculation import calculate_health_percentage, get_result_category
 
-# Load configuration
+# Load questions configuration from questions.json
 with open("questions.json") as f:
     QUESTIONS = json.load(f)
 
-# MongoDB connection
+# Initialize MongoDB connection using secrets (adjust your secrets accordingly)
 @st.cache_resource(ttl=300)
 def init_mongo():
     try:
@@ -26,9 +26,8 @@ def convert_mongo_docs(docs):
     """Convert MongoDB documents to JSON-serializable format"""
     for doc in docs:
         doc["_id"] = str(doc["_id"])
-        if "timestamp" in doc:
-            if isinstance(doc["timestamp"], datetime):
-                doc["timestamp"] = doc["timestamp"].isoformat()
+        if "timestamp" in doc and isinstance(doc["timestamp"], datetime):
+            doc["timestamp"] = doc["timestamp"].isoformat()
     return docs
 
 def clean_gender_data(df):
@@ -40,18 +39,20 @@ def clean_gender_data(df):
     return df
 
 def render_question(q):
+    """Render a question based on its type"""
     q_type = q.get("type", "positive_scale")
     if q_type == "mood":
         return st.selectbox(q["text"], q["options"])
     elif q_type == "binary_risk":
         return st.radio(q["text"], [("No", "0"), ("Yes", "1")], format_func=lambda x: x[0])[1]
+    elif q_type == "number":
+        return st.number_input(q["text"], min_value=0, step=1)
     elif "scale" in q_type:
         return st.slider(q["text"], 0, 5)
     return None
 
 def show_analytics():
     st.header("📊 Assessment Analytics")
-    
     try:
         if not client:
             return
@@ -69,35 +70,23 @@ def show_analytics():
         df = pd.DataFrame(clean_data)
         df = clean_gender_data(df)
 
-        # Gender Distribution Pie Chart
         st.subheader("👥 Gender Distribution")
-        
-        # Get counts with proper column names
         gender_counts = df['gender'].value_counts().reset_index()
         gender_counts.columns = ['Gender', 'Count']
-        
-        # Create complete gender template
         all_genders = pd.DataFrame({'Gender': ['Male', 'Female'], 'Count': [0, 0]})
-        
-        # Merge with actual data
         gender_counts = pd.concat([gender_counts, all_genders])
         gender_counts = gender_counts.groupby('Gender', as_index=False)['Count'].sum()
-
-        # Create visualization
         fig = px.pie(gender_counts,
                      values='Count',
                      names='Gender',
                      color='Gender',
-                     color_discrete_map={'Male':'#1f77b4',
-                                        'Female':'#ff7f0e'},
+                     color_discrete_map={'Male':'#1f77b4', 'Female':'#ff7f0e'},
                      hole=0.3)
-        
         fig.update_traces(texttemplate='%{label}<br>%{value} (%{percent})',
                           hoverinfo='label+percent+value')
         st.plotly_chart(fig, use_container_width=True)
 
-        # Rest of analytics code...
-        # [Keep existing average scores, distributions, and category breakdowns]
+        # Additional analytics can be added here
 
     except Exception as e:
         st.error(f"Error loading analytics: {str(e)}")
@@ -122,7 +111,7 @@ def main():
             return
             
         if client:
-            # Calculate results
+            # Calculate results using custom functions
             percentage = calculate_health_percentage(responses, QUESTIONS)
             result = get_result_category(percentage)
 
@@ -151,24 +140,8 @@ def main():
             except Exception as e:
                 st.error(f"❌ Error saving assessment: {str(e)}")
 
-    # Show analytics
+    # Show analytics section
     show_analytics()
-# Add these to your existing code
-def clean_gender_data(df):
-    """Fix messy gender data"""
-    df['gender'] = df['gender'].str.strip().str.title()
-    valid = ['Male', 'Female']
-    return df[df['gender'].isin(valid)].copy()
-
-def fix_csv_columns(df):
-    """Repair misaligned CSV data"""
-    return df.iloc[:, :21]  # Keep first 21 columns from your CSV
-
-def show_gender_pie(df):
-    """Display pie chart"""
-    counts = df['gender'].value_counts().reindex(['Male','Female'], fill_value=0)
-    fig = px.pie(counts, values=counts, names=counts.index)
-    st.plotly_chart(fig)
 
 if __name__ == "__main__":
     main()
