@@ -10,12 +10,12 @@
     "type": "negative_scale"
   },
   {
-    "key": "Sleep Quality ",
+    "key": "Sleep Quality",
     "text": "Sleep quality (0 = Poor, 5 = Excellent)",
     "type": "positive_scale"
   },
   {
-    "key": "Anxiety Level ",
+    "key": "Anxiety Level",
     "text": "Anxiety level (0 = None, 5 = Extreme)",
     "type": "negative_scale"
   },
@@ -46,7 +46,7 @@
     "type": "positive_scale"
   },
   {
-    "key": "Social Support ",
+    "key": "Social Support",
     "text": "Social support (0 = None, 5 = Strong)",
     "type": "positive_scale"
   },
@@ -61,12 +61,12 @@
     "type": "negative_scale"
   },
   {
-    "key": "Family Support ",
+    "key": "Family Support",
     "text": "Family support (0 = None, 5 = Strong)",
     "type": "positive_scale"
   },
   {
-    "key": "life Satisfaction ",
+    "key": "Life Satisfaction",
     "text": "Life satisfaction (0 = Low, 5 = High)",
     "type": "positive_scale"
   },
@@ -76,7 +76,7 @@
     "type": "positive_scale"
   },
   {
-    "key": "Concentration Level ",
+    "key": "Concentration Level",
     "text": "Concentration (0 = Poor, 5 = Excellent)",
     "type": "positive_scale"
   }
