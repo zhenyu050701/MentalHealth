@@ -119,10 +119,10 @@ def main():
                 # Save to MongoDB
                 doc = {
                     **responses,
-                    "gender": gender.strip().title(),
-                    "health_percentage": percentage,
-                    "result_category": result,
-                    "timestamp": datetime.now()
+                    "Gender ": gender.strip().title(),
+                    "Health Percentage": percentage,
+                    "Results ": result,
+                    "Assessment date ": datetime.now()
                 }
                 db = client[st.secrets["db_name"]]
                 db[st.secrets["collection_name"]].insert_one(doc)
