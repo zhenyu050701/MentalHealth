@@ -32,9 +32,9 @@ def convert_mongo_docs(docs):
 
 def clean_gender_data(df):
     """Standardize and clean gender column"""
-    df['gender'] = df['gender'].astype(str).str.strip().str.title()
+    df['Gender'] = df['Gender'].astype(str).str.strip().str.title()
     valid_genders = ['Male', 'Female']
-    df = df[df['gender'].isin(valid_genders)].copy()
+    df = df[df['Gender'].isin(valid_genders)].copy()
     df.reset_index(drop=True, inplace=True)
     return df
 
