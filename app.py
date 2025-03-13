@@ -6,7 +6,7 @@ from datetime import datetime
 from pymongo import MongoClient
 from calculation import calculate_health_percentage, get_result_category
 
-# Load questions configuration
+# Load questions configuration from questions.json
 with open("questions.json") as f:
     QUESTIONS = json.load(f)
 
@@ -62,11 +62,11 @@ def main():
 
     # User info section (Name & Gmail)
     st.header("👤 Personal Information")
-    name = st.text_input("Full Name", "")
-    gmail = st.text_input("Gmail Address", "")
+    name = st.text_input("Full Name", "").strip()
+    gmail = st.text_input("Gmail Address", "").strip()
 
     if st.button("Proceed to Assessment"):
-        if not name.strip():
+        if not name:
             st.error("❌ Please enter your full name.")
             return
         if not validate_gmail(gmail):
@@ -77,33 +77,31 @@ def main():
         prev_assessment = get_previous_assessment(name, gmail)
 
         if prev_assessment:
-            prev_score = prev_assessment.get("Health Percentage", 0) * 100  # Convert decimal to percentage
-            prev_category = prev_assessment.get("Results", "").strip()
+            prev_score = prev_assessment.get("Health Percentage", 0) * 100  # Convert to percentage
             prev_date = prev_assessment.get("Assessment date", "N/A")
 
-            # Format date properly
             if isinstance(prev_date, datetime):
-                prev_date = prev_date.strftime("%d/%m/%Y %H:%M")  # Format as DD/MM/YYYY HH:mm
+                prev_date = prev_date.strftime("%d/%m/%Y %H:%M")  # Format date
 
             # Show previous result
             st.subheader("📊 Your Previous Assessment")
-            col1, col2, col3 = st.columns(3)
+            col1, col2 = st.columns(2)
             col1.metric("Previous Score", f"{prev_score:.2f}%")
-            col2.metric("Previous Category", prev_category if prev_category else "-")
-            col3.metric("Date Taken", prev_date)
+            col2.metric("Date Taken", prev_date)
 
-            # Store for comparison
+            # Save previous data in session state
             st.session_state["prev_score"] = prev_score
+            st.session_state["prev_date"] = prev_date
         else:
-            st.session_state["prev_score"] = None
+            st.warning("⚠ No previous assessment found.")
 
-        # Save Name & Gmail in session
-        st.session_state["Name"] = name.strip()
-        st.session_state["Gmail"] = gmail.strip()
+        # Save Name & Gmail in session state
+        st.session_state["Name"] = name
+        st.session_state["Gmail"] = gmail
         st.session_state["assessment_started"] = True
 
     if "assessment_started" not in st.session_state:
-        return  # Stop execution until user enters correct name & Gmail
+        return  # Stop execution until name & Gmail are provided
 
     # Assessment form
     responses = {}
@@ -111,6 +109,7 @@ def main():
         for q in QUESTIONS:
             responses[q["key"]] = render_question(q)
         
+        # Gender selection with validation
         gender = st.radio("Gender", ["Male", "Female"], index=None)
         submitted = st.form_submit_button("Submit Assessment")
 
@@ -129,7 +128,8 @@ def main():
                 collection = db[st.secrets["collection_name"]]
 
                 # Retrieve the previous assessment before saving new one
-                prev_score = st.session_state.get("prev_score")
+                prev_assessment = get_previous_assessment(st.session_state["Name"], st.session_state["Gmail"])
+                prev_percentage = prev_assessment.get("Health Percentage", 0) * 100 if prev_assessment else None
 
                 # Save new assessment (replace previous one)
                 collection.delete_many({"Name": st.session_state["Name"], "Gmail": st.session_state["Gmail"]})
@@ -155,22 +155,21 @@ def main():
                     st.json(convert_mongo_docs([doc])[0])
 
                 # Compare with previous result
-                if prev_score is not None:
-                    if percentage > prev_score:
-                        st.success(f"🎉 You are healthier! Your score improved from {prev_score:.2f}% to {percentage:.2f}%.")
-                    elif percentage < prev_score:
-                        st.warning(f"⚠ Your health has declined. Your score dropped from {prev_score:.2f}% to {percentage:.2f}%.")
+                if prev_percentage is not None:
+                    if percentage > prev_percentage:
+                        st.success(f"🎉 You are healthier! Your score improved from {prev_percentage:.2f}% to {percentage:.2f}%.")
+                    elif percentage < prev_percentage:
+                        st.warning(f"⚠ Your health has declined. Your score dropped from {prev_percentage:.2f}% to {percentage:.2f}%.")
                     else:
                         st.info("🔄 No change detected in your mental health score.")
 
-                    # Generate comparison graph
-                    df = pd.DataFrame({
-                        "Assessment": ["Previous", "Current"],
-                        "Score (%)": [prev_score, percentage]
+                    # 📊 **Graph Comparison**
+                    st.subheader("📈 Score Comparison")
+                    data = pd.DataFrame({
+                        "Assessment": ["Previous", "New"],
+                        "Score (%)": [prev_percentage, percentage]
                     })
-                    fig = px.bar(df, x="Assessment", y="Score (%)", text="Score (%)", title="Health Score Comparison",
-                                 color="Assessment", barmode="group")
-                    fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
+                    fig = px.bar(data, x="Assessment", y="Score (%)", text_auto=True, title="Previous vs New Score")
                     st.plotly_chart(fig)
 
             except Exception as e:
