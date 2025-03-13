@@ -5,7 +5,6 @@ import plotly.express as px
 from datetime import datetime
 from pymongo import MongoClient
 from calculation import calculate_health_percentage, get_result_category
-import re
 
 # Load questions configuration from questions.json
 with open("questions.json") as f:
@@ -52,8 +51,12 @@ def render_question(q):
         return st.slider(q["text"], 0, 5)
     return None
 
+def validate_gmail(email):
+    """Ensure Gmail is valid"""
+    return email.endswith("@gmail.com")
+
 def show_analytics():
-    st.header("\ud83d\udcca Assessment Analytics")
+    st.header("📊 Assessment Analytics")
     try:
         if not client:
             return
@@ -71,7 +74,7 @@ def show_analytics():
         df = pd.DataFrame(clean_data)
         df = clean_gender_data(df)
 
-        st.subheader("\ud83d\udc65 Gender Distribution")
+        st.subheader("👥 Gender Distribution")
         gender_counts = df['Gender'].value_counts().reset_index()
         gender_counts.columns = ['Gender', 'Count']
         fig = px.pie(gender_counts,
@@ -82,6 +85,31 @@ def show_analytics():
                      hole=0.3)
         st.plotly_chart(fig, use_container_width=True)
 
+        # 📊 Bar Chart (Stress vs. Sleep Quality)
+        st.subheader("📊 Stress Level vs. Sleep Quality")
+        if "Stress Level" in df.columns and "Sleep Quality" in df.columns:
+            fig = px.bar(df, x="Stress Level", y="Sleep Quality", color="Gender",
+                         barmode="group", title="Stress Level vs. Sleep Quality")
+            st.plotly_chart(fig, use_container_width=True)
+
+        # 🥧 Pie Chart (% of Anxious Users with Low Social Support)
+        st.subheader("🥧 Anxiety & Low Social Support Distribution")
+        if "Anxiety Level" in df.columns and "Social Support" in df.columns:
+            df_anxious_low_support = df[(df["Anxiety Level"] > 3) & (df["Social Support"] <= 2)]
+            anxious_low_support_counts = df_anxious_low_support["Gender"].value_counts().reset_index()
+            anxious_low_support_counts.columns = ["Gender", "Count"]
+            fig = px.pie(anxious_low_support_counts, values="Count", names="Gender",
+                         title="% of Anxious Users with Low Social Support")
+            st.plotly_chart(fig, use_container_width=True)
+
+        # 🔵 Scatter Plot (Anxiety vs. Self-Harm)
+        st.subheader("🔵 Anxiety vs. Self-Harm Cases")
+        if "Anxiety Level" in df.columns and "Self Harm" in df.columns:
+            fig = px.scatter(df, x="Anxiety Level", y="Self Harm", color="Gender",
+                             title="Anxiety vs. Self-Harm Cases",
+                             size_max=10)
+            st.plotly_chart(fig, use_container_width=True)
+
     except Exception as e:
         st.error(f"Error loading analytics: {str(e)}")
 
@@ -89,31 +117,42 @@ def main():
     st.title("Mental Health Assessment")
     st.write("Complete this assessment to evaluate your mental health status.")
 
+    # User info section (Name & Gmail)
+    st.header("👤 Personal Information")
+    name = st.text_input("Full Name", "")
+    gmail = st.text_input("Gmail Address", "")
+
+    if st.button("Proceed to Assessment"):
+        if not name.strip():
+            st.error("❌ Please enter your full name.")
+            return
+        if not validate_gmail(gmail):
+            st.error("❌ Please enter a valid Gmail address (must end with @gmail.com).")
+            return
+
+        # Save Name & Gmail
+        st.session_state["name"] = name.strip()
+        st.session_state["gmail"] = gmail.strip()
+
+        # Move to assessment
+        st.session_state["assessment_started"] = True
+
+    if "assessment_started" not in st.session_state:
+        return  # Stop execution until name & Gmail are provided
+
     # Assessment form
     responses = {}
     with st.form("assessment_form"):
-        name = st.text_input("Full Name", "")
-        gmail = st.text_input("Gmail", "", placeholder="example@gmail.com")
-        
-        # Gender selection with validation
-        gender = st.radio("Gender", ["Male", "Female"], index=None)
-        
         for q in QUESTIONS:
             responses[q["key"]] = render_question(q)
         
+        # Gender selection with validation
+        gender = st.radio("Gender", ["Male", "Female"], index=None)
         submitted = st.form_submit_button("Submit Assessment")
 
     if submitted:
-        if not name.strip():
-            st.error("Please enter your full name.")
-            return
-        
-        if not re.match(r"^[a-zA-Z0-9_.+-]+@gmail\.com$", gmail):
-            st.error("Please enter a valid Gmail address.")
-            return
-
         if not gender:
-            st.error("Please select your gender.")
+            st.error("❌ Please select your gender")
             return
             
         if client:
@@ -124,17 +163,17 @@ def main():
             try:
                 # Save to MongoDB
                 doc = {
-                    "Full Name": name.strip(),
-                    "Gmail": gmail.strip(),
-                    "Gender": gender.strip().title(),
+                    "Name": st.session_state["name"],
+                    "Gmail": st.session_state["gmail"],
                     **responses,
+                    "Gender": gender.strip().title(),
                     "Health Percentage": percentage,
                     "Results ": result,
                     "Assessment date": datetime.now()
                 }
                 db = client[st.secrets["db_name"]]
                 db[st.secrets["collection_name"]].insert_one(doc)
-                st.success("\u2705 Assessment saved successfully!")
+                st.success("✅ Assessment saved successfully!")
 
                 # Show results
                 st.subheader("Your Results")
@@ -146,7 +185,7 @@ def main():
                     st.json(convert_mongo_docs([doc])[0])
 
             except Exception as e:
-                st.error(f"\u274c Error saving assessment: {str(e)}")
+                st.error(f"❌ Error saving assessment: {str(e)}")
 
     # Show analytics section
     show_analytics()
