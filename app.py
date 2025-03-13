@@ -42,11 +42,11 @@ def render_question(q):
 def validate_gmail(email):
     return email.endswith("@gmail.com")
 
-def get_previous_assessment(name, email):
+def get_existing_user(name, email):
     if client:
         db = client[st.secrets["db_name"]]
         collection = db[st.secrets["collection_name"]]
-        return collection.find_one({"Name": name, "Gmail": email}, sort=[("Assessment date", -1)])
+        return collection.find_one({"Name": name, "Gmail": email})
     return None
 
 def has_assessment_today(name, email):
@@ -81,18 +81,12 @@ def main():
         if not gender:
             st.error("❌ Please select your gender.")
             return
-        
-        prev_assessment = get_previous_assessment(name, gmail)
-        if prev_assessment:
-            prev_score = prev_assessment.get("Health Percentage", 0) * 100
-            prev_date = prev_assessment.get("Assessment date", "N/A")
-            if isinstance(prev_date, datetime):
-                prev_date = prev_date.strftime("%d/%m/%Y %H:%M")
-            st.subheader("\U0001F4CA Your Previous Assessment")
-            col1, col2 = st.columns(2)
-            col1.metric("Previous Score", f"{prev_score:.2f}%")
-            col2.metric("Date Taken", prev_date)
 
+        existing_user = get_existing_user(name, gmail)
+        if existing_user is None:
+            st.error("❌ The entered name and Gmail do not match any existing records. Please enter the correct details.")
+            return
+        
         if has_assessment_today(name, gmail):
             st.error("❌ You can only submit one assessment per day.")
             return
