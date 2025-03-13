@@ -33,7 +33,7 @@ def calculate_health_percentage(responses, questions):
     return percentage
 
 def get_result_category(percentage):
-    percentage *= 100  # Convert to scale of 0-100 for display purposes
+
     
     if percentage >= 85:
         return "Excellent ✨"
