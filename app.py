@@ -144,7 +144,7 @@ def main():
         if client:
             # ✅ FIX: Store percentage as decimal (0.6 instead of 60)
             percentage = calculate_health_percentage(responses, QUESTIONS)  # No multiplication by 100 here
-            result = get_result_category(percentage)# Convert for display
+            result = get_result_category(percentage * 100)# Convert for display
 
             try:
                 db = client[st.secrets["db_name"]]
