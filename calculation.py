@@ -1,7 +1,7 @@
 import json
 
 # Load transformation rules from JSON file
-with open("transformation.json", "r") as file:
+with open("transformation_rules.json", "r") as file:
     TRANSFORM_RULES = json.load(file)
 
 def calculate_health_percentage(responses, questions):
