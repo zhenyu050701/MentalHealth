@@ -63,37 +63,18 @@ def main():
     if st.button("Proceed to Assessment"):
         if not name:
             st.error("❌ Please enter your full name.")
-            return
-        if not validate_gmail(gmail):
+        elif not validate_gmail(gmail):
             st.error("❌ Please enter a valid Gmail address (must end with @gmail.com).")
-            return
-        if not gender:
+        elif gender is None:
             st.error("❌ Please select your gender.")
-            return
-
-        prev_assessment = get_previous_assessment(name, gmail)
-
-        if prev_assessment:
-            prev_score = prev_assessment.get("Health Percentage", 0) * 100
-            prev_date = prev_assessment.get("Assessment date", "N/A")
-
-            if isinstance(prev_date, datetime):
-                prev_date = prev_date.strftime("%d/%m/%Y %H:%M")
-
-            st.subheader("\U0001F4CA Your Previous Assessment")
-            col1, col2 = st.columns(2)
-            col1.metric("Previous Score", f"{prev_score:.2f}%")
-            col2.metric("Date Taken", prev_date)
-
-            st.session_state["prev_score"] = prev_score
-            st.session_state["prev_date"] = prev_date
         else:
-            st.warning("⚠ No previous assessment found.")
+            st.session_state["Name"] = name
+            st.session_state["Gmail"] = gmail
+            st.session_state["Age"] = age
+            st.session_state["Gender"] = gender.strip().title()
+            st.session_state["assessment_started"] = True
+            st.rerun()  # Ensures UI refreshes properly
 
-        st.session_state["Name"] = name
-        st.session_state["Gmail"] = gmail
-        st.session_state["Age"] = age
-        st.session_state["Gender"] = gender.strip().title()
     if "assessment_started" not in st.session_state:
         return
 
@@ -101,18 +82,9 @@ def main():
     with st.form("assessment_form"):
         for q in QUESTIONS:
             responses[q["key"]] = render_question(q)
-
-        # ✅ Age input restricted to 1 - 100
-        age = st.number_input("Enter your age", min_value=1, max_value=100, step=1)
-
-        gender = st.radio("Gender", ["Male", "Female"], index=None)
         submitted = st.form_submit_button("Submit Assessment")
 
     if submitted:
-        if not gender:
-            st.error("❌ Please select your gender")
-            return
-            
         if client:
             percentage = calculate_health_percentage(responses, QUESTIONS) * 100
             result = get_result_category(percentage)
@@ -128,9 +100,9 @@ def main():
                 doc = {
                     "Name": st.session_state["Name"],
                     "Gmail": st.session_state["Gmail"],
-                    "Age": age,  # ✅ Save age
+                    "Age": st.session_state["Age"],
                     **responses,
-                    "Gender": gender.strip().title(),
+                    "Gender": st.session_state["Gender"],
                     "Health Percentage": percentage / 100,
                     "Results": result,
                     "Assessment date": datetime.now()
