@@ -191,4 +191,4 @@ def main():
     show_analytics()
 
 if __name__ == "__main__":
-    main() i mean for this 
+    main() 
