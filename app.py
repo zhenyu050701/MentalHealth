@@ -55,6 +55,16 @@ def validate_gmail(email):
     """Ensure Gmail is valid"""
     return email.endswith("@gmail.com")
 
+def fetch_latest_assessment(email):
+    """Retrieve the most recent assessment for the given email"""
+    if not client:
+        return None
+
+    db = client[st.secrets["db_name"]]
+    collection = db[st.secrets["collection_name"]]
+    
+    return collection.find_one({"Gmail": email}, sort=[("Assessment date", -1)])
+
 def show_analytics():
     st.header("📊 Assessment Analytics")
     try:
@@ -85,31 +95,6 @@ def show_analytics():
                      hole=0.3)
         st.plotly_chart(fig, use_container_width=True)
 
-        # 📊 Bar Chart (Stress vs. Sleep Quality)
-        st.subheader("📊 Stress Level vs. Sleep Quality")
-        if "Stress Level" in df.columns and "Sleep Quality" in df.columns:
-            fig = px.bar(df, x="Stress Level", y="Sleep Quality", color="Gender",
-                         barmode="group", title="Stress Level vs. Sleep Quality")
-            st.plotly_chart(fig, use_container_width=True)
-
-        # 🥧 Pie Chart (% of Anxious Users with Low Social Support)
-        st.subheader("🥧 Anxiety & Low Social Support Distribution")
-        if "Anxiety Level" in df.columns and "Social Support" in df.columns:
-            df_anxious_low_support = df[(df["Anxiety Level"] > 3) & (df["Social Support"] <= 2)]
-            anxious_low_support_counts = df_anxious_low_support["Gender"].value_counts().reset_index()
-            anxious_low_support_counts.columns = ["Gender", "Count"]
-            fig = px.pie(anxious_low_support_counts, values="Count", names="Gender",
-                         title="% of Anxious Users with Low Social Support")
-            st.plotly_chart(fig, use_container_width=True)
-
-        # 🔵 Scatter Plot (Anxiety vs. Self-Harm)
-        st.subheader("🔵 Anxiety vs. Self-Harm Cases")
-        if "Anxiety Level" in df.columns and "Self Harm" in df.columns:
-            fig = px.scatter(df, x="Anxiety Level", y="Self Harm", color="Gender",
-                             title="Anxiety vs. Self-Harm Cases",
-                             size_max=10)
-            st.plotly_chart(fig, use_container_width=True)
-
     except Exception as e:
         st.error(f"Error loading analytics: {str(e)}")
 
@@ -133,6 +118,15 @@ def main():
         # Save Name & Gmail
         st.session_state["name"] = name.strip()
         st.session_state["gmail"] = gmail.strip()
+
+        # Retrieve latest assessment
+        latest_assessment = fetch_latest_assessment(gmail)
+        if latest_assessment:
+            st.success("✅ Found your most recent assessment!")
+            with st.expander("📜 View Last Assessment"):
+                st.json(convert_mongo_docs([latest_assessment])[0])
+        else:
+            st.warning("No previous assessment found. Please proceed.")
 
         # Move to assessment
         st.session_state["assessment_started"] = True
@@ -161,7 +155,10 @@ def main():
             result = get_result_category(percentage)
 
             try:
-                # Save to MongoDB
+                # Overwrite previous entry (update instead of insert)
+                db = client[st.secrets["db_name"]]
+                collection = db[st.secrets["collection_name"]]
+                
                 doc = {
                     "Name": st.session_state["name"],
                     "Gmail": st.session_state["gmail"],
@@ -171,9 +168,9 @@ def main():
                     "Results ": result,
                     "Assessment date": datetime.now()
                 }
-                db = client[st.secrets["db_name"]]
-                db[st.secrets["collection_name"]].insert_one(doc)
-                st.success("✅ Assessment saved successfully!")
+                
+                collection.update_one({"Gmail": st.session_state["gmail"]}, {"$set": doc}, upsert=True)
+                st.success("✅ Assessment saved successfully! (Updated latest entry)")
 
                 # Show results
                 st.subheader("Your Results")
@@ -191,4 +188,4 @@ def main():
     show_analytics()
 
 if __name__ == "__main__":
-    main() 
+    main()
