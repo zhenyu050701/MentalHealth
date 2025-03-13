@@ -13,6 +13,7 @@ with open("questions.json") as f:
 # Initialize MongoDB connection
 @st.cache_resource(ttl=300)
 def init_mongo():
+    """Connect to MongoDB"""
     try:
         client = MongoClient(st.secrets["mongo_uri"])
         return client
@@ -27,7 +28,7 @@ def validate_gmail(email):
     return email.endswith("@gmail.com")
 
 def get_existing_user(name, email):
-    """Check if user with the same Name and Gmail exists in the database"""
+    """Retrieve previous assessment of user"""
     if client:
         db = client[st.secrets["db_name"]]
         collection = db[st.secrets["collection_name"]]
@@ -38,7 +39,7 @@ def main():
     st.title("Mental Health Assessment")
     st.write("Complete this assessment to evaluate your mental health status.")
 
-    # User info section (Name & Gmail)
+    # User info section
     st.header("👤 Personal Information")
     name = st.text_input("Full Name", "").strip()
     gmail = st.text_input("Gmail Address", "").strip()
@@ -51,18 +52,32 @@ def main():
             st.error("❌ Please enter a valid Gmail address (must end with @gmail.com).")
             return
 
-        # Check if the user exists in the database
+        # Check if the user exists
         existing_user = get_existing_user(name, gmail)
         if not existing_user:
             st.error("❌ User not found! You must enter the **exact same** Name and Gmail used before.")
             return
 
-        # Allow user to continue
+        # Store previous result for comparison
+        st.session_state["previous_result"] = existing_user
         st.session_state["assessment_started"] = True
         st.success("✅ Verified! You can now take the assessment.")
 
     if "assessment_started" not in st.session_state:
-        return  # Stop execution until Name & Gmail are verified
+        return  # Stop execution until verification is complete
+
+    # Show previous results
+    prev_result = st.session_state.get("previous_result", {})
+    if prev_result:
+        st.subheader("📊 Your Previous Assessment")
+        prev_score = prev_result.get("Health Percentage", 0)
+        prev_category = prev_result.get("Results", "Unknown")
+        prev_date = prev_result.get("Assessment date", "N/A")
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Previous Score", f"{prev_score:.2f}%")
+        col2.metric("Previous Category", prev_category)
+        col3.metric("Date", prev_date)
 
     # Assessment form
     responses = {}
@@ -70,7 +85,6 @@ def main():
         for q in QUESTIONS:
             responses[q["key"]] = st.slider(q["text"], 0, 5)  # Example question type
         
-        # Gender selection with validation
         gender = st.radio("Gender", ["Male", "Female"], index=None)
         submitted = st.form_submit_button("Submit Assessment")
 
@@ -81,33 +95,53 @@ def main():
 
         if client:
             # Calculate results
-            percentage = calculate_health_percentage(responses, QUESTIONS)
-            result = get_result_category(percentage)
+            new_percentage = calculate_health_percentage(responses, QUESTIONS)
+            new_category = get_result_category(new_percentage)
 
             try:
                 db = client[st.secrets["db_name"]]
                 collection = db[st.secrets["collection_name"]]
 
-                # Save new assessment (but first delete previous record to avoid redundancy)
-                collection.delete_one({"Name": name, "Gmail": gmail})
+                # Store previous before overwriting
+                prev_score = prev_result.get("Health Percentage", 0)
 
+                # Remove old record and insert new one
+                collection.delete_one({"Name": name, "Gmail": gmail})
                 doc = {
                     "Name": name,
                     "Gmail": gmail,
                     **responses,
                     "Gender": gender.title(),
-                    "Health Percentage": percentage,
-                    "Results": result,
+                    "Health Percentage": new_percentage,
+                    "Results": new_category,
                     "Assessment date": datetime.now()
                 }
                 collection.insert_one(doc)
                 st.success("✅ Assessment saved successfully!")
 
-                # Show results
-                st.subheader("Your Results")
+                # Show new results
+                st.subheader("📊 Your New Results")
                 col1, col2 = st.columns(2)
-                col1.metric("Overall Score", f"{percentage:.2f}%")
-                col2.metric("Result Category", result)
+                col1.metric("Current Score", f"{new_percentage:.2f}%")
+                col2.metric("Result Category", new_category)
+
+                # Compare results
+                score_diff = new_percentage - prev_score
+                change_msg = "Improved" if score_diff > 0 else "Declined" if score_diff < 0 else "No Change"
+
+                st.subheader("📈 Comparison with Previous Result")
+                st.write(f"Your mental health score has **{change_msg}** by **{abs(score_diff):.2f}%**.")
+                
+                # Show a comparison bar chart
+                df = pd.DataFrame({
+                    "Assessment": ["Previous", "Current"],
+                    "Health Percentage": [prev_score, new_percentage]
+                })
+                fig = px.bar(df, x="Assessment", y="Health Percentage", text="Health Percentage", 
+                             color="Assessment", title="Comparison of Mental Health Score",
+                             labels={"Health Percentage": "Score (%)"})
+                fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
+                st.plotly_chart(fig)
 
             except Exception as e:
                 st.error(f"❌ Error saving assessment: {str(e)}")
