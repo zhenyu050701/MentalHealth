@@ -54,7 +54,7 @@ def main():
     st.title("Mental Health Assessment")
     st.write("Complete this assessment to evaluate your mental health status.")
 
-    st.header("👤 Personal Information")
+    st.header("\U0001F464 Personal Information")
     name = st.text_input("Full Name", "").strip()
     gmail = st.text_input("Gmail Address", "").strip()
 
@@ -75,7 +75,7 @@ def main():
             if isinstance(prev_date, datetime):
                 prev_date = prev_date.strftime("%d/%m/%Y %H:%M")
 
-            st.subheader("📊 Your Previous Assessment")
+            st.subheader("\U0001F4CA Your Previous Assessment")
             col1, col2 = st.columns(2)
             col1.metric("Previous Score", f"{prev_score:.2f}%")
             col2.metric("Date Taken", prev_date)
@@ -98,7 +98,7 @@ def main():
             responses[q["key"]] = render_question(q)
 
         # ✅ Age input restricted to 1 - 100
-        age = st.number_input("Age", min_value=1, max_value=100, step=1)
+        age = st.number_input("Enter your age", min_value=1, max_value=100, step=1)
 
         gender = st.radio("Gender", ["Male", "Female"], index=None)
         submitted = st.form_submit_button("Submit Assessment")
@@ -149,7 +149,7 @@ def main():
                     else:
                         st.info("🔄 No change detected in your mental health score.")
 
-                    st.subheader("📈 Score Comparison")
+                    st.subheader("\U0001F4C8 Score Comparison")
                     data = pd.DataFrame({
                         "Assessment": ["Previous", "New"],
                         "Score (%)": [prev_percentage, percentage]
