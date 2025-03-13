@@ -1,40 +1,61 @@
 import streamlit as st
+import json
 import pandas as pd
-import pymongo
+import plotly.express as px
 from datetime import datetime
+from pymongo import MongoClient
+from calculation import calculate_health_percentage, get_result_category
 
-# MongoDB Connection
-client = pymongo.MongoClient(st.secrets["mongo_uri"])
+# Load questions configuration from questions.json
+with open("questions.json") as f:
+    QUESTIONS = json.load(f)
 
-# Function to clean gender data
+# Initialize MongoDB connection
+@st.cache_resource(ttl=300)
+def init_mongo():
+    try:
+        client = MongoClient(st.secrets["mongo_uri"])
+        return client
+    except Exception as e:
+        st.error(f"Database connection failed: {e}")
+        return None
+
+client = init_mongo()
+
+def convert_mongo_docs(docs):
+    """Convert MongoDB documents to JSON-serializable format"""
+    for doc in docs:
+        doc["_id"] = str(doc["_id"])
+        if "Assessment date" in doc and isinstance(doc["Assessment date"], datetime):
+            doc["Assessment date"] = doc["Assessment date"].isoformat()
+    return docs
+
 def clean_gender_data(df):
-    df["Gender"] = df["Gender"].str.strip().str.title()
+    """Standardize and clean gender column"""
+    df['Gender'] = df['Gender'].astype(str).str.strip().str.title()
+    valid_genders = ['Male', 'Female']
+    df = df[df['Gender'].isin(valid_genders)].copy()
+    df.reset_index(drop=True, inplace=True)
     return df
 
-# Function to convert MongoDB documents into a DataFrame-compatible format
-def convert_mongo_docs(raw_data):
-    return [{key: doc[key] for key in doc if key != "_id"} for doc in raw_data]
+def render_question(q):
+    """Render a question based on its type"""
+    q_type = q.get("type", "positive_scale")
+    if q_type == "mood":
+        return st.selectbox(q["text"], q["options"])
+    elif q_type == "binary_risk":
+        return st.radio(q["text"], [("No", "0"), ("Yes", "1")], format_func=lambda x: x[0])[1]
+    elif q_type == "number":
+        return st.number_input(q["text"], min_value=0, step=1)
+    elif "scale" in q_type:
+        return st.slider(q["text"], 0, 5)
+    return None
 
-# Function to calculate health percentage
-def calculate_health_percentage(responses):
-    yes_answers = sum(1 for ans in responses.values() if ans.lower() == "yes")
-    total_questions = len(responses)
-    return (yes_answers / total_questions) * 100 if total_questions else 0
+def validate_gmail(email):
+    """Ensure Gmail is valid"""
+    return email.endswith("@gmail.com")
 
-# Function to get result category
-def get_result_category(percentage):
-    if percentage >= 80:
-        return "Excellent Health"
-    elif percentage >= 50:
-        return "Average Health"
-    else:
-        return "Needs Improvement"
-
-# Function to display analytics (Only if the user has submitted an assessment)
 def show_analytics():
-    if "gmail" not in st.session_state:
-        return  # Stop if Gmail is not set
-
     st.header("📊 Assessment Analytics")
     try:
         if not client:
@@ -42,64 +63,132 @@ def show_analytics():
 
         db = client[st.secrets["db_name"]]
         collection = db[st.secrets["collection_name"]]
-
-        # Retrieve only the data submitted by the logged-in user
-        raw_data = list(collection.find({"Gmail": st.session_state["gmail"]}))
-
+        raw_data = list(collection.find())
+        
         if not raw_data:
-            st.warning("📢 Complete and submit at least one assessment to view analytics!")
-            return  # Stop here if no assessment data exists
+            st.warning("No data available yet. Complete an assessment first!")
+            return
 
         # Convert and clean data
         clean_data = convert_mongo_docs(raw_data)
         df = pd.DataFrame(clean_data)
         df = clean_gender_data(df)
 
-        # (Insert Graph Code Here) 📊📈
-        st.write(df)  # Placeholder for graphs
+        st.subheader("👥 Gender Distribution")
+        gender_counts = df['Gender'].value_counts().reset_index()
+        gender_counts.columns = ['Gender', 'Count']
+        fig = px.pie(gender_counts,
+                     values='Count',
+                     names='Gender',
+                     color='Gender',
+                     color_discrete_map={'Male':'#1f77b4', 'Female':'#ff7f0e'},
+                     hole=0.3)
+        st.plotly_chart(fig, use_container_width=True)
+
+        # 📊 Bar Chart (Stress vs. Sleep Quality)
+        st.subheader("📊 Stress Level vs. Sleep Quality")
+        if "Stress Level" in df.columns and "Sleep Quality" in df.columns:
+            fig = px.bar(df, x="Stress Level", y="Sleep Quality", color="Gender",
+                         barmode="group", title="Stress Level vs. Sleep Quality")
+            st.plotly_chart(fig, use_container_width=True)
+
+        # 🥧 Pie Chart (% of Anxious Users with Low Social Support)
+        st.subheader("🥧 Anxiety & Low Social Support Distribution")
+        if "Anxiety Level" in df.columns and "Social Support" in df.columns:
+            df_anxious_low_support = df[(df["Anxiety Level"] > 3) & (df["Social Support"] <= 2)]
+            anxious_low_support_counts = df_anxious_low_support["Gender"].value_counts().reset_index()
+            anxious_low_support_counts.columns = ["Gender", "Count"]
+            fig = px.pie(anxious_low_support_counts, values="Count", names="Gender",
+                         title="% of Anxious Users with Low Social Support")
+            st.plotly_chart(fig, use_container_width=True)
+
+        # 🔵 Scatter Plot (Anxiety vs. Self-Harm)
+        st.subheader("🔵 Anxiety vs. Self-Harm Cases")
+        if "Anxiety Level" in df.columns and "Self Harm" in df.columns:
+            fig = px.scatter(df, x="Anxiety Level", y="Self Harm", color="Gender",
+                             title="Anxiety vs. Self-Harm Cases",
+                             size_max=10)
+            st.plotly_chart(fig, use_container_width=True)
 
     except Exception as e:
-        st.error(f"❌ Error loading analytics: {str(e)}")
+        st.error(f"Error loading analytics: {str(e)}")
 
-# Streamlit UI
 def main():
-    st.title("🩺 Health Assessment App")
+    st.title("Mental Health Assessment")
+    st.write("Complete this assessment to evaluate your mental health status.")
 
-    # Input Fields
-    st.session_state["name"] = st.text_input("Enter your Name", key="name_input")
-    st.session_state["gmail"] = st.text_input("Enter your Gmail", key="gmail_input")
-    gender = st.selectbox("Select your Gender", ["", "Male", "Female", "Other"])
+    # User info section (Name & Gmail)
+    st.header("👤 Personal Information")
+    name = st.text_input("Full Name", "")
+    gmail = st.text_input("Gmail Address", "")
 
+    if st.button("Proceed to Assessment"):
+        if not name.strip():
+            st.error("❌ Please enter your full name.")
+            return
+        if not validate_gmail(gmail):
+            st.error("❌ Please enter a valid Gmail address (must end with @gmail.com).")
+            return
+
+        # Save Name & Gmail
+        st.session_state["name"] = name.strip()
+        st.session_state["gmail"] = gmail.strip()
+
+        # Move to assessment
+        st.session_state["assessment_started"] = True
+
+    if "assessment_started" not in st.session_state:
+        return  # Stop execution until name & Gmail are provided
+
+    # Assessment form
     responses = {}
-    for i in range(1, 6):  # Change the range based on the number of questions
-        responses[f"Q{i}"] = st.radio(f"Question {i}", ["Yes", "No"], key=f"q{i}")
-
-    # Submit Button
-    submitted = st.button("Submit Assessment")
+    with st.form("assessment_form"):
+        for q in QUESTIONS:
+            responses[q["key"]] = render_question(q)
+        
+        # Gender selection with validation
+        gender = st.radio("Gender", ["Male", "Female"], index=None)
+        submitted = st.form_submit_button("Submit Assessment")
 
     if submitted:
         if not gender:
-            st.error("⚠️ Please select your gender before submitting.")
-        else:
-            db = client[st.secrets["db_name"]]
-            collection = db[st.secrets["collection_name"]]
+            st.error("❌ Please select your gender")
+            return
+            
+        if client:
+            # Calculate results using custom functions
+            percentage = calculate_health_percentage(responses, QUESTIONS)
+            result = get_result_category(percentage)
 
-            assessment_data = {
-                "Name": st.session_state["name"],
-                "Gmail": st.session_state["gmail"],
-                "Gender": gender,
-                "Responses": responses,
-                "HealthScore": calculate_health_percentage(responses),
-                "Category": get_result_category(calculate_health_percentage(responses)),
-                "Timestamp": datetime.utcnow(),
-            }
+            try:
+                # Save to MongoDB
+                doc = {
+                    "Name": st.session_state["name"],
+                    "Gmail": st.session_state["gmail"],
+                    **responses,
+                    "Gender": gender.strip().title(),
+                    "Health Percentage": percentage,
+                    "Results ": result,
+                    "Assessment date": datetime.now()
+                }
+                db = client[st.secrets["db_name"]]
+                db[st.secrets["collection_name"]].insert_one(doc)
+                st.success("✅ Assessment saved successfully!")
 
-            collection.insert_one(assessment_data)
-            st.success("✅ Assessment submitted successfully!")
+                # Show results
+                st.subheader("Your Results")
+                col1, col2 = st.columns(2)
+                col1.metric("Overall Score", f"{percentage:.2f}%")
+                col2.metric("Result Category", result)
+                
+                with st.expander("View Detailed Breakdown"):
+                    st.json(convert_mongo_docs([doc])[0])
 
-    # Show analytics only if an assessment has been submitted
-    if submitted:
-        show_analytics()
+            except Exception as e:
+                st.error(f"❌ Error saving assessment: {str(e)}")
+
+    # Show analytics section
+    show_analytics()
 
 if __name__ == "__main__":
-    main()
+    main() i mean for this 
