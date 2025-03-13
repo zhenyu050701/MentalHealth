@@ -63,17 +63,38 @@ def main():
     if st.button("Proceed to Assessment"):
         if not name:
             st.error("❌ Please enter your full name.")
-        elif not validate_gmail(gmail):
+            return
+        if not validate_gmail(gmail):
             st.error("❌ Please enter a valid Gmail address (must end with @gmail.com).")
-        elif gender is None:
+            return
+        if not gender:
             st.error("❌ Please select your gender.")
+            return
+
+        prev_assessment = get_previous_assessment(name, gmail)
+
+        if prev_assessment:
+            prev_score = prev_assessment.get("Health Percentage", 0) * 100
+            prev_date = prev_assessment.get("Assessment date", "N/A")
+
+            if isinstance(prev_date, datetime):
+                prev_date = prev_date.strftime("%d/%m/%Y %H:%M")
+
+            st.subheader("\U0001F4CA Your Previous Assessment")
+            col1, col2 = st.columns(2)
+            col1.metric("Previous Score", f"{prev_score:.2f}%")
+            col2.metric("Date Taken", prev_date)
+
+            st.session_state["prev_score"] = prev_score
+            st.session_state["prev_date"] = prev_date
         else:
-            st.session_state["Name"] = name
-            st.session_state["Gmail"] = gmail
-            st.session_state["Age"] = age
-            st.session_state["Gender"] = gender.strip().title()
-            st.session_state["assessment_started"] = True
-            st.rerun()  # Ensures UI refreshes properly
+            st.warning("⚠ No previous assessment found.")
+
+        st.session_state["Name"] = name
+        st.session_state["Gmail"] = gmail
+        st.session_state["Age"] = age
+        st.session_state["Gender"] = gender.strip().title()
+        st.session_state["assessment_started"] = True
 
     if "assessment_started" not in st.session_state:
         return
@@ -86,7 +107,7 @@ def main():
 
     if submitted:
         if client:
-            percentage = calculate_health_percentage(responses, QUESTIONS) * 100
+            percentage = calculate_health_percentage(responses, QUESTIONS)
             result = get_result_category(percentage)
 
             try:
@@ -103,7 +124,7 @@ def main():
                     "Age": st.session_state["Age"],
                     **responses,
                     "Gender": st.session_state["Gender"],
-                    "Health Percentage": percentage / 100,
+                    "Health Percentage": percentage,
                     "Results": result,
                     "Assessment date": datetime.now()
                 }
