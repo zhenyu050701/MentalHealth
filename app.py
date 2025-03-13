@@ -6,9 +6,11 @@ from datetime import datetime, timedelta
 from pymongo import MongoClient
 from calculation import calculate_health_percentage, get_result_category
 
+# Load questions from JSON file
 with open("questions.json") as f:
     QUESTIONS = json.load(f)
 
+# Initialize MongoDB connection
 @st.cache_resource(ttl=300)
 def init_mongo():
     try:
@@ -20,13 +22,18 @@ def init_mongo():
 
 client = init_mongo()
 
+# Convert MongoDB documents for display
 def convert_mongo_docs(docs):
     for doc in docs:
         doc["_id"] = str(doc["_id"])
         if "Assessment date" in doc and isinstance(doc["Assessment date"], datetime):
             doc["Assessment date"] = doc["Assessment date"].isoformat()
+        # Convert stored decimal to percentage for display
+        if "Health Percentage" in doc:
+            doc["Health Percentage"] = f"{doc['Health Percentage'] * 100:.2f}%"
     return docs
 
+# Function to render questions
 def render_question(q):
     q_type = q.get("type", "positive_scale")
     if q_type == "mood":
@@ -39,9 +46,11 @@ def render_question(q):
         return st.slider(q["text"], 0, 5)
     return None
 
+# Validate Gmail address
 def validate_gmail(email):
     return email.endswith("@gmail.com")
 
+# Fetch previous assessment
 def get_previous_assessment(name, email):
     if client:
         db = client[st.secrets["db_name"]]
@@ -49,6 +58,7 @@ def get_previous_assessment(name, email):
         return collection.find_one({"Gmail": email}, sort=[("Assessment date", -1)])
     return None
 
+# Check if user has taken an assessment today
 def has_assessment_today(email):
     if client:
         db = client[st.secrets["db_name"]]
@@ -60,18 +70,20 @@ def has_assessment_today(email):
         })
     return False
 
+# Check if user is new
 def is_new_user(email):
-    """Check if a user exists in the database by their email."""
     if client:
         db = client[st.secrets["db_name"]]
         collection = db[st.secrets["collection_name"]]
         return collection.find_one({"Gmail": email}) is None
     return False
 
+# Main application
 def main():
     st.title("Mental Health Assessment")
     st.write("Complete this assessment to evaluate your mental health status.")
 
+    # Personal Information Section
     st.header("\U0001F464 Personal Information")
     name = st.text_input("Full Name", "").strip()
     gmail = st.text_input("Gmail Address", "").strip()
@@ -88,7 +100,7 @@ def main():
         if not gender:
             st.error("❌ Please select your gender.")
             return
-        
+
         new_user = is_new_user(gmail)
 
         if new_user:
@@ -96,10 +108,11 @@ def main():
         else:
             prev_assessment = get_previous_assessment(name, gmail)
             if prev_assessment:
-                prev_score = prev_assessment.get("Health Percentage", 0) * 100
+                prev_score = prev_assessment.get("Health Percentage", 0) * 100  # Convert from decimal to %
                 prev_date = prev_assessment.get("Assessment date", "N/A")
                 if isinstance(prev_date, datetime):
                     prev_date = prev_date.strftime("%d/%m/%Y %H:%M")
+                
                 st.subheader("\U0001F4CA Your Previous Assessment")
                 col1, col2 = st.columns(2)
                 col1.metric("Previous Score", f"{prev_score:.2f}%")
@@ -120,6 +133,7 @@ def main():
     if "assessment_started" not in st.session_state:
         return
 
+    # Assessment Form
     responses = {}
     with st.form("assessment_form"):
         for q in QUESTIONS:
@@ -128,9 +142,10 @@ def main():
 
     if submitted:
         if client:
-            percentage = calculate_health_percentage(responses, QUESTIONS) * 100
-            result = get_result_category(percentage)
-            
+            # ✅ FIX: Store percentage as decimal (0.6 instead of 60)
+            percentage = calculate_health_percentage(responses, QUESTIONS)  # No multiplication by 100 here
+            result = get_result_category(percentage * 100)  # Convert for display
+
             try:
                 db = client[st.secrets["db_name"]]
                 collection = db[st.secrets["collection_name"]]
@@ -140,18 +155,19 @@ def main():
                     "Age": st.session_state["Age"],
                     **responses,
                     "Gender": st.session_state["Gender"],
-                    "Health Percentage": percentage / 100, 
+                    "Health Percentage": percentage,  # ✅ Stored as decimal (e.g., 0.6)
                     "Results": result,
                     "Assessment date": datetime.now()
                 }
                 collection.insert_one(doc)
                 st.success("✅ Assessment saved successfully!")
-                
+
+                # Display Results
                 st.subheader("Your Results")
                 col1, col2 = st.columns(2)
-                col1.metric("Overall Score", f"{percentage:.2f}%")
+                col1.metric("Overall Score", f"{percentage * 100:.2f}%")  # ✅ Convert decimal to %
                 col2.metric("Result Category", result)
-                
+
                 with st.expander("View Detailed Breakdown"):
                     st.json(convert_mongo_docs([doc])[0])
 
