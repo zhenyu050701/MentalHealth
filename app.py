@@ -57,6 +57,8 @@ def main():
     st.header("\U0001F464 Personal Information")
     name = st.text_input("Full Name", "").strip()
     gmail = st.text_input("Gmail Address", "").strip()
+    age = st.number_input("Enter your age", min_value=1, max_value=100, step=1)
+    gender = st.radio("Gender", ["Male", "Female"], index=None)
 
     if st.button("Proceed to Assessment"):
         if not name:
@@ -64,6 +66,9 @@ def main():
             return
         if not validate_gmail(gmail):
             st.error("❌ Please enter a valid Gmail address (must end with @gmail.com).")
+            return
+        if not gender:
+            st.error("❌ Please select your gender.")
             return
 
         prev_assessment = get_previous_assessment(name, gmail)
@@ -87,8 +92,8 @@ def main():
 
         st.session_state["Name"] = name
         st.session_state["Gmail"] = gmail
-        st.session_state["assessment_started"] = True
-
+        st.session_state["Age"] = age
+        st.session_state["Gender"] = gender.strip().title()
     if "assessment_started" not in st.session_state:
         return
 
