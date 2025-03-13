@@ -74,8 +74,8 @@ def main():
             return
 
         # Save Name & Gmail
-        st.session_state["name"] = name.strip()
-        st.session_state["gmail"] = gmail.strip()
+        st.session_state["Name"] = name.strip()
+        st.session_state["Gmail"] = gmail.strip()
 
         # Retrieve last assessment
         prev_assessment = get_previous_assessment(gmail)
