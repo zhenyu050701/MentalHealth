@@ -47,6 +47,15 @@ def validate_gmail(email):
     """Ensure Gmail is valid"""
     return email.endswith("@gmail.com")
 
+def check_existing_user(name, email):
+    """Check if a user with the same name and Gmail already exists"""
+    if client:
+        db = client[st.secrets["db_name"]]
+        collection = db[st.secrets["collection_name"]]
+        existing_user = collection.find_one({"Name": name, "Gmail": email})
+        return existing_user is not None
+    return False
+
 def get_previous_assessment(email):
     """Retrieve the most recent assessment for a user"""
     if client:
@@ -61,7 +70,7 @@ def main():
     st.write("Complete this assessment to evaluate your mental health status.")
 
     # User info section (Name & Gmail)
-    st.header("👤 Personal Information")
+    st.header("\U0001F464 Personal Information")
     name = st.text_input("Full Name", "")
     gmail = st.text_input("Gmail Address", "")
 
@@ -71,6 +80,9 @@ def main():
             return
         if not validate_gmail(gmail):
             st.error("❌ Please enter a valid Gmail address (must end with @gmail.com).")
+            return
+        if check_existing_user(name.strip(), gmail.strip()):
+            st.error("❌ A user with this name and Gmail already exists. Please use a different name or email.")
             return
 
         # Save Name & Gmail
@@ -119,15 +131,10 @@ def main():
                 db = client[st.secrets["db_name"]]
                 collection = db[st.secrets["collection_name"]]
 
-                # Retrieve the previous assessment before saving new one
-                prev_assessment = get_previous_assessment(st.session_state["gmail"])
-                prev_percentage = prev_assessment.get("Health Percentage", 0.0) if prev_assessment else None
-
-                # Save new assessment (replace previous one)
-                collection.delete_many({"Gmail": st.session_state["gmail"]})  # Remove previous records
+                # Save new assessment
                 doc = {
-                    "Name": st.session_state["name"],
-                    "Gmail": st.session_state["gmail"],
+                    "Name": st.session_state["Name"],
+                    "Gmail": st.session_state["Gmail"],
                     **responses,
                     "Gender": gender.strip().title(),
                     "Health Percentage": percentage,
@@ -145,15 +152,6 @@ def main():
 
                 with st.expander("View Detailed Breakdown"):
                     st.json(convert_mongo_docs([doc])[0])
-
-                # Compare with previous result
-                if prev_percentage is not None:
-                    if percentage > prev_percentage:
-                        st.success(f"🎉 You are healthier! Your score improved from {prev_percentage:.2f}% to {percentage:.2f}%.")
-                    elif percentage < prev_percentage:
-                        st.warning(f"⚠ Your health has declined. Your score dropped from {prev_percentage:.2f}% to {percentage:.2f}%.")
-                    else:
-                        st.info("🔄 No change detected in your mental health score.")
 
             except Exception as e:
                 st.error(f"❌ Error saving assessment: {str(e)}")
