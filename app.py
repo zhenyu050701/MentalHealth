@@ -6,7 +6,7 @@ from datetime import datetime
 from pymongo import MongoClient
 from calculation import calculate_health_percentage, get_result_category
 
-# Load questions from JSON
+# Load questions configuration from questions.json
 with open("questions.json") as f:
     QUESTIONS = json.load(f)
 
@@ -30,10 +30,6 @@ def convert_mongo_docs(docs):
             doc["Assessment date"] = doc["Assessment date"].isoformat()
     return docs
 
-def validate_gmail(email):
-    """Ensure Gmail is valid"""
-    return email.endswith("@gmail.com")
-
 def render_question(q):
     """Render a question based on its type"""
     q_type = q.get("type", "positive_scale")
@@ -47,41 +43,18 @@ def render_question(q):
         return st.slider(q["text"], 0, 5)
     return None
 
-def get_latest_assessment(db, user_gmail):
-    """Retrieve the most recent assessment for a given user"""
-    return db[st.secrets["collection_name"]].find_one({"Gmail": user_gmail}, sort=[("Assessment date", -1)])
+def validate_gmail(email):
+    """Ensure Gmail is valid"""
+    return email.endswith("@gmail.com")
 
-def show_analytics():
-    """Display assessment analytics"""
-    st.header("📊 Assessment Analytics")
-    try:
-        if not client:
-            return
-
+def get_previous_assessment(email):
+    """Retrieve the most recent assessment for a user"""
+    if client:
         db = client[st.secrets["db_name"]]
         collection = db[st.secrets["collection_name"]]
-        raw_data = list(collection.find())
-        
-        if not raw_data:
-            st.warning("No data available yet. Complete an assessment first!")
-            return
-
-        # Convert and clean data
-        clean_data = convert_mongo_docs(raw_data)
-        df = pd.DataFrame(clean_data)
-
-        st.subheader("👥 Gender Distribution")
-        gender_counts = df['Gender'].value_counts().reset_index()
-        gender_counts.columns = ['Gender', 'Count']
-        fig = px.pie(gender_counts,
-                     values='Count',
-                     names='Gender',
-                     color='Gender',
-                     hole=0.3)
-        st.plotly_chart(fig, use_container_width=True)
-
-    except Exception as e:
-        st.error(f"Error loading analytics: {str(e)}")
+        prev_assessment = collection.find_one({"Gmail": email}, sort=[("Assessment date", -1)])
+        return prev_assessment
+    return None
 
 def main():
     st.title("Mental Health Assessment")
@@ -100,28 +73,27 @@ def main():
             st.error("❌ Please enter a valid Gmail address (must end with @gmail.com).")
             return
 
-        # Save user info
+        # Save Name & Gmail
         st.session_state["name"] = name.strip()
         st.session_state["gmail"] = gmail.strip()
+
+        # Retrieve last assessment
+        prev_assessment = get_previous_assessment(gmail)
+        if prev_assessment:
+            prev_percentage = prev_assessment.get("Health Percentage", 0.0)
+            prev_category = prev_assessment.get("Results", "")
+
+            # Show previous result
+            if prev_category != "Unknown":
+                st.success(f"✅ This is your previous result: {prev_percentage:.2f}% ({prev_category})")
+            else:
+                st.success(f"✅ This is your previous result: {prev_percentage:.2f}%")
+
+        # Move to assessment
         st.session_state["assessment_started"] = True
 
     if "assessment_started" not in st.session_state:
         return  # Stop execution until name & Gmail are provided
-
-    # Connect to database
-    db = client[st.secrets["db_name"]]
-    user_gmail = st.session_state["gmail"]
-
-    # Retrieve the most recent assessment
-    latest_assessment = get_latest_assessment(db, user_gmail)
-    if latest_assessment:
-        prev_percentage = latest_assessment.get("Health Percentage", None)
-        prev_category = latest_assessment.get("Results", "Unknown")
-
-        if prev_percentage is not None:
-            prev_percentage *= 100  # Convert decimal to percentage format
-
-        st.success(f"✅ This is your previous result: {prev_percentage:.2f}% ({prev_category})")
 
     # Assessment form
     responses = {}
@@ -129,7 +101,7 @@ def main():
         for q in QUESTIONS:
             responses[q["key"]] = render_question(q)
         
-        # Gender selection
+        # Gender selection with validation
         gender = st.radio("Gender", ["Male", "Female"], index=None)
         submitted = st.form_submit_button("Submit Assessment")
 
@@ -138,51 +110,53 @@ def main():
             st.error("❌ Please select your gender")
             return
             
-        # Calculate results
-        percentage = calculate_health_percentage(responses, QUESTIONS)
-        result = get_result_category(percentage)
+        if client:
+            # Calculate results using custom functions
+            percentage = calculate_health_percentage(responses, QUESTIONS)
+            result = get_result_category(percentage)
 
-        try:
-            # Save the latest assessment (Overwrite previous one)
-            doc = {
-                "Name": st.session_state["name"],
-                "Gmail": user_gmail,
-                **responses,
-                "Gender": gender.strip().title(),
-                "Health Percentage": percentage,
-                "Results": result,
-                "Assessment date": datetime.now()
-            }
+            try:
+                db = client[st.secrets["db_name"]]
+                collection = db[st.secrets["collection_name"]]
 
-            db[st.secrets["collection_name"]].delete_many({"Gmail": user_gmail})  # Remove old records
-            db[st.secrets["collection_name"]].insert_one(doc)  # Save only the latest one
+                # Retrieve the previous assessment before saving new one
+                prev_assessment = get_previous_assessment(st.session_state["gmail"])
+                prev_percentage = prev_assessment.get("Health Percentage", 0.0) if prev_assessment else None
 
-            st.success("✅ Assessment saved successfully!")
+                # Save new assessment (replace previous one)
+                collection.delete_many({"Gmail": st.session_state["gmail"]})  # Remove previous records
+                doc = {
+                    "Name": st.session_state["name"],
+                    "Gmail": st.session_state["gmail"],
+                    **responses,
+                    "Gender": gender.strip().title(),
+                    "Health Percentage": percentage,
+                    "Results": result,
+                    "Assessment date": datetime.now()
+                }
+                collection.insert_one(doc)
+                st.success("✅ Assessment saved successfully!")
 
-            # Show results
-            st.subheader("Your Results")
-            col1, col2 = st.columns(2)
-            col1.metric("Overall Score", f"{percentage * 100:.2f}%")
-            col2.metric("Result Category", result)
-            
-            # Health improvement message
-            if latest_assessment and "Health Percentage" in latest_assessment:
-                prev_percentage = latest_assessment["Health Percentage"] * 100
-                if percentage * 100 > prev_percentage:
-                    st.success(f"🎉 You are healthier than before! Previous: {prev_percentage:.2f}%, Now: {percentage * 100:.2f}%")
-                elif percentage * 100 < prev_percentage:
-                    st.warning(f"⚠ Your mental health has declined. Previous: {prev_percentage:.2f}%, Now: {percentage * 100:.2f}%")
-                else:
-                    st.info("ℹ Your mental health status remains the same.")
+                # Show results
+                st.subheader("Your Results")
+                col1, col2 = st.columns(2)
+                col1.metric("Overall Score", f"{percentage:.2f}%")
+                col2.metric("Result Category", result)
 
-            with st.expander("View Detailed Breakdown"):
-                st.json(convert_mongo_docs([doc])[0])
+                with st.expander("View Detailed Breakdown"):
+                    st.json(convert_mongo_docs([doc])[0])
 
-        except Exception as e:
-            st.error(f"❌ Error saving assessment: {str(e)}")
+                # Compare with previous result
+                if prev_percentage is not None:
+                    if percentage > prev_percentage:
+                        st.success(f"🎉 You are healthier! Your score improved from {prev_percentage:.2f}% to {percentage:.2f}%.")
+                    elif percentage < prev_percentage:
+                        st.warning(f"⚠ Your health has declined. Your score dropped from {prev_percentage:.2f}% to {percentage:.2f}%.")
+                    else:
+                        st.info("🔄 No change detected in your mental health score.")
 
-    # Show analytics
-    show_analytics()
+            except Exception as e:
+                st.error(f"❌ Error saving assessment: {str(e)}")
 
 if __name__ == "__main__":
     main()
