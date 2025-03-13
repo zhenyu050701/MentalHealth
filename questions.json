@@ -1,10 +1,5 @@
 [
   {
-    "key": "Age ",
-    "text": "Enter your age",
-    "type": "number"
-  },
-  {
     "key": "Stress Level ",
     "text": "Stress level (0 = None, 5 = Extreme)",
     "type": "negative_scale"
