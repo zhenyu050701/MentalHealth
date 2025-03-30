@@ -17,7 +17,7 @@ def set_background(image_path):
         f"""
         <style>
         .stApp {{
-            background: url("") no-repeat center center fixed;
+            background: url("20240427_STD002.webp") no-repeat center center fixed;
             background-size: cover;
         }}
         </style>
