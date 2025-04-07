@@ -50,6 +50,14 @@ def render_question(q):
 def validate_gmail(email):
     return email.endswith("@gmail.com")
 
+# Fetch user document by Gmail to validate the name
+def get_user_by_email(gmail):
+    if client:
+        db = client[st.secrets["db_name"]]
+        collection = db[st.secrets["collection_name"]]
+        return collection.find_one({"Gmail": gmail})
+    return None
+
 # Fetch previous assessment
 def get_previous_assessment(name, email):
     if client:
@@ -101,6 +109,17 @@ def main():
             st.error("❌ Please select your gender.")
             return
 
+        # Fetch user from the database by Gmail
+        user_doc = get_user_by_email(gmail)
+        if user_doc:
+            # Check if the provided name matches the one stored in the database
+            if user_doc["Name"] != name:
+                st.error("❌ The name you entered does not match the one on record.")
+                return
+        else:
+            st.error("❌ No user found with that Gmail address.")
+            return
+
         new_user = is_new_user(gmail)
 
         if new_user:
@@ -144,7 +163,7 @@ def main():
         if client:
             # ✅ FIX: Store percentage as decimal (0.6 instead of 60)
             percentage = calculate_health_percentage(responses, QUESTIONS)  # No multiplication by 100 here
-            result = get_result_category(percentage * 100)# Convert for display
+            result = get_result_category(percentage * 100)  # Convert for display
 
             try:
                 db = client[st.secrets["db_name"]]
