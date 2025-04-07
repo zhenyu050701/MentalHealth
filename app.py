@@ -174,5 +174,5 @@ def main():
             except Exception as e:
                 st.error(f"❌ Error saving assessment: {str(e)}")
 
-if _name_ == "_main_":
-    main()
+if __name__ == "__main__":
+    main()
