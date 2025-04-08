@@ -49,18 +49,11 @@ def render_question(q):
 def validate_gmail(email):
     return email.endswith("@gmail.com")
 
-def get_user_profile(gmail):
+def get_user_by_gmail(gmail):
     if client:
         db = client[st.secrets["db_name"]]
         collection = db[st.secrets["collection_name"]]
         return collection.find_one({"Gmail": gmail, "Assessment date": {"$exists": False}})
-    return None
-
-def get_previous_assessment(email):
-    if client:
-        db = client[st.secrets["db_name"]]
-        collection = db[st.secrets["collection_name"]]
-        return collection.find_one({"Gmail": email}, sort=[("Assessment date", -1)])
     return None
 
 def has_assessment_today(email):
@@ -72,7 +65,6 @@ def has_assessment_today(email):
     return False
 
 # Main app
-
 def main():
     st.title("Mental Health Assessment")
     st.write("Complete this assessment to evaluate your mental health status.")
@@ -89,10 +81,10 @@ def main():
             st.error("❌ Gmail must end with @gmail.com.")
             return
 
-        user_doc = get_user_profile(gmail)
+        user_doc = get_user_by_gmail(gmail)
 
         if user_doc:
-            if user_doc["Name"] != name:
+            if user_doc.get("Name") != name:
                 st.error("❌ Gmail is already registered with a different name.")
                 return
             if has_assessment_today(gmail):
@@ -107,33 +99,26 @@ def main():
                 "assessment_started": True
             })
         else:
-            st.info("New user detected. Please complete registration.")
-            age = st.number_input("Enter your age", min_value=1, max_value=100, step=1)
-            gender = st.radio("Gender", ["Male", "Female"], index=None)
-
-            if gender:
-                try:
-                    db = client[st.secrets["db_name"]]
-                    collection = db[st.secrets["collection_name"]]
-                    new_user_doc = {
-                        "Name": name,
-                        "Gmail": gmail,
-                        "Age": age,
-                        "Gender": gender.strip().title()
-                    }
-                    collection.insert_one(new_user_doc)
-                    st.success("✅ Registration successful! You may proceed.")
-                    st.session_state.update({
-                        "Name": name,
-                        "Gmail": gmail,
-                        "Age": age,
-                        "Gender": gender.strip().title(),
-                        "assessment_started": True
-                    })
-                except Exception as e:
-                    st.error(f"❌ Registration failed: {e}")
-            else:
-                st.warning("⚠️ Please complete all registration fields.")
+            try:
+                db = client[st.secrets["db_name"]]
+                collection = db[st.secrets["collection_name"]]
+                new_user_doc = {
+                    "Name": name,
+                    "Gmail": gmail,
+                    "Age": 0,
+                    "Gender": "Unknown"
+                }
+                collection.insert_one(new_user_doc)
+                st.success("✅ New user registered successfully!")
+                st.session_state.update({
+                    "Name": name,
+                    "Gmail": gmail,
+                    "Age": 0,
+                    "Gender": "Unknown",
+                    "assessment_started": True
+                })
+            except Exception as e:
+                st.error(f"❌ Registration failed: {e}")
 
     if "assessment_started" not in st.session_state:
         return
