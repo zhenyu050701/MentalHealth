@@ -77,9 +77,9 @@ def main():
     st.title("Mental Health Assessment")
     st.write("Complete this assessment to evaluate your mental health status.")
 
-    st.header("\U0001F512 User Login or Registration")
-    gmail = st.text_input("Gmail Address", "").strip()
+    st.header("🔒 User Login or Registration")
     name = st.text_input("Full Name", "").strip()
+    gmail = st.text_input("Gmail Address", "").strip()
 
     if st.button("Login / Register"):
         if not gmail or not name:
