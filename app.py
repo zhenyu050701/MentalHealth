@@ -135,6 +135,11 @@ def main():
                     st.error(f"❌ Error registering new user: {str(e)}")
                     return
 
+        # Check if the user has already completed the assessment today
+        if has_assessment_today(gmail):
+            st.error("❌ You can only submit one assessment per day.")
+            return
+
         # Proceed with the assessment as usual
         st.session_state.update({
             "Name": name,
