@@ -4,7 +4,6 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta
 from pymongo import MongoClient
-import hashlib
 from calculation import calculate_health_percentage, get_result_category
 
 # Load questions from JSON file
@@ -33,13 +32,6 @@ def convert_mongo_docs(docs):
             doc["Health Percentage"] = f"{doc['Health Percentage'] * 100:.2f}%"
     return docs
 
-# Password hashing utilities
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-def verify_password(stored_hash, input_password):
-    return stored_hash == hash_password(input_password)
-
 # Question rendering
 def render_question(q):
     q_type = q.get("type", "positive_scale")
@@ -57,11 +49,11 @@ def render_question(q):
 def validate_gmail(email):
     return email.endswith("@gmail.com")
 
-def get_user_by_email(gmail):
+def get_user_profile(gmail):
     if client:
         db = client[st.secrets["db_name"]]
         collection = db[st.secrets["collection_name"]]
-        return collection.find_one({"Gmail": gmail})
+        return collection.find_one({"Gmail": gmail, "Assessment date": {"$exists": False}})
     return None
 
 def get_previous_assessment(email):
@@ -87,26 +79,25 @@ def main():
 
     st.header("\U0001F512 User Login or Registration")
     gmail = st.text_input("Gmail Address", "").strip()
-    password = st.text_input("Password", type="password")
+    name = st.text_input("Full Name", "").strip()
 
     if st.button("Login / Register"):
-        if not gmail or not password:
-            st.error("❌ Please enter both Gmail and password.")
+        if not gmail or not name:
+            st.error("❌ Please enter both Gmail and full name.")
             return
         if not validate_gmail(gmail):
             st.error("❌ Gmail must end with @gmail.com.")
             return
 
-        user_doc = get_user_by_email(gmail)
+        user_doc = get_user_profile(gmail)
 
         if user_doc:
-            if not verify_password(user_doc.get("Password", ""), password):
-                st.error("❌ Incorrect password.")
+            if user_doc["Name"] != name:
+                st.error("❌ Gmail is already registered with a different name.")
                 return
             if has_assessment_today(gmail):
                 st.error("❌ You have already submitted an assessment today.")
                 return
-
             st.success("✅ Logged in successfully!")
             st.session_state.update({
                 "Name": user_doc["Name"],
@@ -117,22 +108,19 @@ def main():
             })
         else:
             st.info("New user detected. Please complete registration.")
-            name = st.text_input("Full Name (New User)", key="new_name").strip()
-            age = st.number_input("Enter your age", min_value=1, max_value=100, step=1, key="new_age")
-            gender = st.radio("Gender", ["Male", "Female"], index=None, key="new_gender")
+            age = st.number_input("Enter your age", min_value=1, max_value=100, step=1)
+            gender = st.radio("Gender", ["Male", "Female"], index=None)
 
-            if name and gender:
-                hashed_pw = hash_password(password)
-                new_user_doc = {
-                    "Name": name,
-                    "Gmail": gmail,
-                    "Password": hashed_pw,
-                    "Age": age,
-                    "Gender": gender.strip().title()
-                }
+            if gender:
                 try:
                     db = client[st.secrets["db_name"]]
                     collection = db[st.secrets["collection_name"]]
+                    new_user_doc = {
+                        "Name": name,
+                        "Gmail": gmail,
+                        "Age": age,
+                        "Gender": gender.strip().title()
+                    }
                     collection.insert_one(new_user_doc)
                     st.success("✅ Registration successful! You may proceed.")
                     st.session_state.update({
