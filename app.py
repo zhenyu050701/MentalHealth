@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta
 from pymongo import MongoClient
+import hashlib
 from calculation import calculate_health_percentage, get_result_category
 
 # Load questions from JSON file
@@ -28,12 +29,18 @@ def convert_mongo_docs(docs):
         doc["_id"] = str(doc["_id"])
         if "Assessment date" in doc and isinstance(doc["Assessment date"], datetime):
             doc["Assessment date"] = doc["Assessment date"].isoformat()
-        # Convert stored decimal to percentage for display
         if "Health Percentage" in doc:
             doc["Health Percentage"] = f"{doc['Health Percentage'] * 100:.2f}%"
     return docs
 
-# Function to render questions
+# Password hashing utilities
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def verify_password(stored_hash, input_password):
+    return stored_hash == hash_password(input_password)
+
+# Question rendering
 def render_question(q):
     q_type = q.get("type", "positive_scale")
     if q_type == "mood":
@@ -46,11 +53,10 @@ def render_question(q):
         return st.slider(q["text"], 0, 5)
     return None
 
-# Validate Gmail address
+# Validators and database fetchers
 def validate_gmail(email):
     return email.endswith("@gmail.com")
 
-# Fetch user document by Gmail to validate the name
 def get_user_by_email(gmail):
     if client:
         db = client[st.secrets["db_name"]]
@@ -58,7 +64,6 @@ def get_user_by_email(gmail):
         return collection.find_one({"Gmail": gmail})
     return None
 
-# Fetch previous assessment
 def get_previous_assessment(name, email):
     if client:
         db = client[st.secrets["db_name"]]
@@ -66,88 +71,81 @@ def get_previous_assessment(name, email):
         return collection.find_one({"Gmail": email}, sort=[("Assessment date", -1)])
     return None
 
-# Check if user has taken an assessment today
 def has_assessment_today(email):
     if client:
         db = client[st.secrets["db_name"]]
         collection = db[st.secrets["collection_name"]]
         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        return collection.find_one({
-            "Gmail": email,
-            "Assessment date": {"$gte": today}
-        })
+        return collection.find_one({"Gmail": email, "Assessment date": {"$gte": today}})
     return False
 
-# Check if user is new
-def is_new_user(email):
-    if client:
-        db = client[st.secrets["db_name"]]
-        collection = db[st.secrets["collection_name"]]
-        return collection.find_one({"Gmail": email}) is None
-    return False
+# Main app
 
-# Main application
 def main():
     st.title("Mental Health Assessment")
     st.write("Complete this assessment to evaluate your mental health status.")
 
-    # Personal Information Section
-    st.header("\U0001F464 Personal Information")
-    name = st.text_input("Full Name", "").strip()
+    st.header("\U0001F512 User Authentication")
     gmail = st.text_input("Gmail Address", "").strip()
-    age = st.number_input("Enter your age", min_value=1, max_value=100, step=1)
-    gender = st.radio("Gender", ["Male", "Female"], index=None)
+    password = st.text_input("Password", type="password")
+    user_doc = get_user_by_email(gmail)
 
-    if st.button("Proceed to Assessment"):
-        if not name:
-            st.error("❌ Please enter your full name.")
-            return
-        if not validate_gmail(gmail):
-            st.error("❌ Please enter a valid Gmail address (must end with @gmail.com).")
-            return
-        if not gender:
-            st.error("❌ Please select your gender.")
-            return
+    if user_doc:
+        st.info("Welcome back! Please log in to proceed.")
+        name = st.text_input("Full Name (for verification)", "").strip()
 
-        # Fetch user from the database by Gmail
-        user_doc = get_user_by_email(gmail)
-        if user_doc:
-            # Check if the provided name matches the one stored in the database
-            if user_doc["Name"] != name:
-                st.error("❌ The name you entered does not match the one on record.")
-                return
-        else:
-            st.error("❌ No user found with that Gmail address.")
-            return
+        if st.button("Login"):
+            if not gmail or not password or not name:
+                st.error("❌ Please complete all login fields.")
+            elif user_doc["Name"] != name:
+                st.error("❌ The name does not match our records.")
+            elif not verify_password(user_doc.get("Password", ""), password):
+                st.error("❌ Incorrect password.")
+            elif has_assessment_today(gmail):
+                st.error("❌ You have already submitted an assessment today.")
+            else:
+                st.success("✅ Login successful.")
+                st.session_state.update({
+                    "Name": name,
+                    "Gmail": gmail,
+                    "Age": user_doc.get("Age", 0),
+                    "Gender": user_doc.get("Gender", "Unknown"),
+                    "assessment_started": True
+                })
+    else:
+        st.info("New user? Register below.")
+        name = st.text_input("Full Name (New User)").strip()
+        age = st.number_input("Enter your age", min_value=1, max_value=100, step=1)
+        gender = st.radio("Gender", ["Male", "Female"], index=None)
 
-        new_user = is_new_user(gmail)
-
-        if new_user:
-            st.success("✅ Welcome, new user! You may proceed with the assessment.")
-        else:
-            prev_assessment = get_previous_assessment(name, gmail)
-            if prev_assessment:
-                prev_score = prev_assessment.get("Health Percentage", 0) * 100  # Convert from decimal to %
-                prev_date = prev_assessment.get("Assessment date", "N/A")
-                if isinstance(prev_date, datetime):
-                    prev_date = prev_date.strftime("%d/%m/%Y %H:%M")
-                
-                st.subheader("\U0001F4CA Your Previous Assessment")
-                col1, col2 = st.columns(2)
-                col1.metric("Previous Score", f"{prev_score:.2f}%")
-                col2.metric("Date Taken", prev_date)
-
-            if has_assessment_today(gmail):
-                st.error("❌ You can only submit one assessment per day.")
-                return
-
-        st.session_state.update({
-            "Name": name,
-            "Gmail": gmail,
-            "Age": age,
-            "Gender": gender.strip().title(),
-            "assessment_started": True
-        })
+        if st.button("Register"):
+            if not name or not gmail or not password or not gender:
+                st.error("❌ Please fill out all fields.")
+            elif not validate_gmail(gmail):
+                st.error("❌ Gmail must end with @gmail.com.")
+            else:
+                hashed_pw = hash_password(password)
+                new_user_doc = {
+                    "Name": name,
+                    "Gmail": gmail,
+                    "Password": hashed_pw,
+                    "Age": age,
+                    "Gender": gender.strip().title()
+                }
+                try:
+                    db = client[st.secrets["db_name"]]
+                    collection = db[st.secrets["collection_name"]]
+                    collection.insert_one(new_user_doc)
+                    st.success("✅ Registered successfully! You may proceed to the assessment.")
+                    st.session_state.update({
+                        "Name": name,
+                        "Gmail": gmail,
+                        "Age": age,
+                        "Gender": gender.strip().title(),
+                        "assessment_started": True
+                    })
+                except Exception as e:
+                    st.error(f"❌ Error during registration: {e}")
 
     if "assessment_started" not in st.session_state:
         return
@@ -159,39 +157,36 @@ def main():
             responses[q["key"]] = render_question(q)
         submitted = st.form_submit_button("Submit Assessment")
 
-    if submitted:
-        if client:
-            # ✅ FIX: Store percentage as decimal (0.6 instead of 60)
-            percentage = calculate_health_percentage(responses, QUESTIONS)  # No multiplication by 100 here
-            result = get_result_category(percentage * 100)  # Convert for display
+    if submitted and client:
+        percentage = calculate_health_percentage(responses, QUESTIONS)
+        result = get_result_category(percentage * 100)
 
-            try:
-                db = client[st.secrets["db_name"]]
-                collection = db[st.secrets["collection_name"]]
-                doc = {
-                    "Name": st.session_state["Name"],
-                    "Gmail": st.session_state["Gmail"],
-                    "Age": st.session_state["Age"],
-                    **responses,
-                    "Gender": st.session_state["Gender"],
-                    "Health Percentage": percentage,  # ✅ Stored as decimal (e.g., 0.6)
-                    "Results": result,
-                    "Assessment date": datetime.now()
-                }
-                collection.insert_one(doc)
-                st.success("✅ Assessment saved successfully!")
+        try:
+            db = client[st.secrets["db_name"]]
+            collection = db[st.secrets["collection_name"]]
+            doc = {
+                "Name": st.session_state["Name"],
+                "Gmail": st.session_state["Gmail"],
+                "Age": st.session_state["Age"],
+                **responses,
+                "Gender": st.session_state["Gender"],
+                "Health Percentage": percentage,
+                "Results": result,
+                "Assessment date": datetime.now()
+            }
+            collection.insert_one(doc)
+            st.success("✅ Assessment saved successfully!")
 
-                # Display Results
-                st.subheader("Your Results")
-                col1, col2 = st.columns(2)
-                col1.metric("Overall Score", f"{percentage * 100:.2f}%")  # ✅ Convert decimal to %
-                col2.metric("Result Category", result)
+            st.subheader("Your Results")
+            col1, col2 = st.columns(2)
+            col1.metric("Overall Score", f"{percentage * 100:.2f}%")
+            col2.metric("Result Category", result)
 
-                with st.expander("View Detailed Breakdown"):
-                    st.json(convert_mongo_docs([doc])[0])
+            with st.expander("View Detailed Breakdown"):
+                st.json(convert_mongo_docs([doc])[0])
 
-            except Exception as e:
-                st.error(f"❌ Error saving assessment: {str(e)}")
+        except Exception as e:
+            st.error(f"❌ Error saving assessment: {str(e)}")
 
 if __name__ == "__main__":
     main()
