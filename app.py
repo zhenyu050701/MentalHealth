@@ -64,7 +64,7 @@ def get_user_by_email(gmail):
         return collection.find_one({"Gmail": gmail})
     return None
 
-def get_previous_assessment(name, email):
+def get_previous_assessment(email):
     if client:
         db = client[st.secrets["db_name"]]
         collection = db[st.secrets["collection_name"]]
@@ -85,45 +85,43 @@ def main():
     st.title("Mental Health Assessment")
     st.write("Complete this assessment to evaluate your mental health status.")
 
-    st.header("\U0001F512 User Authentication")
+    st.header("\U0001F512 User Login or Registration")
     gmail = st.text_input("Gmail Address", "").strip()
     password = st.text_input("Password", type="password")
-    user_doc = get_user_by_email(gmail)
 
-    if user_doc:
-        st.info("Welcome back! Please log in to proceed.")
-        name = st.text_input("Full Name (for verification)", "").strip()
+    if st.button("Login / Register"):
+        if not gmail or not password:
+            st.error("❌ Please enter both Gmail and password.")
+            return
+        if not validate_gmail(gmail):
+            st.error("❌ Gmail must end with @gmail.com.")
+            return
 
-        if st.button("Login"):
-            if not gmail or not password or not name:
-                st.error("❌ Please complete all login fields.")
-            elif user_doc["Name"] != name:
-                st.error("❌ The name does not match our records.")
-            elif not verify_password(user_doc.get("Password", ""), password):
+        user_doc = get_user_by_email(gmail)
+
+        if user_doc:
+            if not verify_password(user_doc.get("Password", ""), password):
                 st.error("❌ Incorrect password.")
-            elif has_assessment_today(gmail):
+                return
+            if has_assessment_today(gmail):
                 st.error("❌ You have already submitted an assessment today.")
-            else:
-                st.success("✅ Login successful.")
-                st.session_state.update({
-                    "Name": name,
-                    "Gmail": gmail,
-                    "Age": user_doc.get("Age", 0),
-                    "Gender": user_doc.get("Gender", "Unknown"),
-                    "assessment_started": True
-                })
-    else:
-        st.info("New user? Register below.")
-        name = st.text_input("Full Name (New User)").strip()
-        age = st.number_input("Enter your age", min_value=1, max_value=100, step=1)
-        gender = st.radio("Gender", ["Male", "Female"], index=None)
+                return
 
-        if st.button("Register"):
-            if not name or not gmail or not password or not gender:
-                st.error("❌ Please fill out all fields.")
-            elif not validate_gmail(gmail):
-                st.error("❌ Gmail must end with @gmail.com.")
-            else:
+            st.success("✅ Logged in successfully!")
+            st.session_state.update({
+                "Name": user_doc["Name"],
+                "Gmail": gmail,
+                "Age": user_doc.get("Age", 0),
+                "Gender": user_doc.get("Gender", "Unknown"),
+                "assessment_started": True
+            })
+        else:
+            st.info("New user detected. Please complete registration.")
+            name = st.text_input("Full Name (New User)", key="new_name").strip()
+            age = st.number_input("Enter your age", min_value=1, max_value=100, step=1, key="new_age")
+            gender = st.radio("Gender", ["Male", "Female"], index=None, key="new_gender")
+
+            if name and gender:
                 hashed_pw = hash_password(password)
                 new_user_doc = {
                     "Name": name,
@@ -136,7 +134,7 @@ def main():
                     db = client[st.secrets["db_name"]]
                     collection = db[st.secrets["collection_name"]]
                     collection.insert_one(new_user_doc)
-                    st.success("✅ Registered successfully! You may proceed to the assessment.")
+                    st.success("✅ Registration successful! You may proceed.")
                     st.session_state.update({
                         "Name": name,
                         "Gmail": gmail,
@@ -145,7 +143,9 @@ def main():
                         "assessment_started": True
                     })
                 except Exception as e:
-                    st.error(f"❌ Error during registration: {e}")
+                    st.error(f"❌ Registration failed: {e}")
+            else:
+                st.warning("⚠️ Please complete all registration fields.")
 
     if "assessment_started" not in st.session_state:
         return
