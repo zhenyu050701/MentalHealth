@@ -117,30 +117,25 @@ def main():
                 st.error("❌ The name you entered does not match the one on record.")
                 return
         else:
-            st.error("❌ No user found with that Gmail address.")
-            return
+            # Register new user in the database
+            new_user_doc = {
+                "Name": name,
+                "Gmail": gmail,
+                "Age": age,
+                "Gender": gender.strip().title(),
+                "Assessment date": None  # New user doesn't have any assessments yet
+            }
+            if client:
+                try:
+                    db = client[st.secrets["db_name"]]
+                    collection = db[st.secrets["collection_name"]]
+                    collection.insert_one(new_user_doc)
+                    st.success("✅ Welcome, new user! You have been registered.")
+                except Exception as e:
+                    st.error(f"❌ Error registering new user: {str(e)}")
+                    return
 
-        new_user = is_new_user(gmail)
-
-        if new_user:
-            st.success("✅ Welcome, new user! You may proceed with the assessment.")
-        else:
-            prev_assessment = get_previous_assessment(name, gmail)
-            if prev_assessment:
-                prev_score = prev_assessment.get("Health Percentage", 0) * 100  # Convert from decimal to %
-                prev_date = prev_assessment.get("Assessment date", "N/A")
-                if isinstance(prev_date, datetime):
-                    prev_date = prev_date.strftime("%d/%m/%Y %H:%M")
-                
-                st.subheader("\U0001F4CA Your Previous Assessment")
-                col1, col2 = st.columns(2)
-                col1.metric("Previous Score", f"{prev_score:.2f}%")
-                col2.metric("Date Taken", prev_date)
-
-            if has_assessment_today(gmail):
-                st.error("❌ You can only submit one assessment per day.")
-                return
-
+        # Proceed with the assessment as usual
         st.session_state.update({
             "Name": name,
             "Gmail": gmail,
